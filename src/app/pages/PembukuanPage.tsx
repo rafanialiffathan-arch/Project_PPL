@@ -1,16 +1,27 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar } from "lucide-react";
+import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar, Trash2, Pencil } from "lucide-react";
 import { TransactionModal } from "../components/TransactionModal.tsx";
 import { apiFetch } from "../../lib/api";
 
 type TabType = "pemasukan" | "pengeluaran" | "kas" | "aset" | "inventaris" | "rekonsiliasi";
 
+type Transaction = {
+  id: number;
+  tanggal: string;
+  keterangan: string;
+  kategori: string;
+  status: string;
+  jumlah: number;
+  tipe: string;
+};
+
 export function PembukuanPage() {
   const [activeTab, setActiveTab] = useState<TabType>("pemasukan");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
-  const [transactions, setTransactions] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
 
   const fetchTransaksi = async () => {
     setIsLoading(true);
@@ -32,7 +43,34 @@ export function PembukuanPage() {
   }, []);
 
   const handleAddData = () => {
+    setSelectedTransaction(null);
     setIsModalOpen(true);
+  };
+
+  const handleEdit = (transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (transaction: Transaction) => {
+    const confirmed = window.confirm(`Yakin ingin menghapus transaksi "${transaction.keterangan}"?\n\nTindakan ini tidak dapat dibatalkan.`);
+    if (!confirmed) return;
+
+    try {
+      const res = await apiFetch(`/transaksi/${transaction.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Transaksi berhasil dihapus!");
+        fetchTransaksi();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Gagal menghapus transaksi!");
+      }
+    } catch {
+      alert("Koneksi ke server gagal. Pastikan backend menyala.");
+    }
   };
 
   // Hitung summary dari transactions
@@ -304,8 +342,8 @@ export function PembukuanPage() {
 
         {/* Tab Content */}
         <div className="p-6">
-          {activeTab === "pemasukan" && <PemasukanContent transactions={transactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} />}
-          {activeTab === "pengeluaran" && <PengeluaranContent transactions={transactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} />}
+          {activeTab === "pemasukan" && <PemasukanContent transactions={transactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} onEdit={handleEdit} onDelete={handleDelete} />}
+          {activeTab === "pengeluaran" && <PengeluaranContent transactions={transactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} onEdit={handleEdit} onDelete={handleDelete} />}
           {activeTab === "kas" && <KasContent />}
           {activeTab === "aset" && <AsetContent />}
           {activeTab === "inventaris" && <InventarisContent />}
@@ -316,10 +354,13 @@ export function PembukuanPage() {
       {/* Transaction Modal */}
       <TransactionModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => { setIsModalOpen(false); setSelectedTransaction(null); }}
         type={activeTab === "rekonsiliasi" ? "kas" : activeTab}
+        editData={selectedTransaction}
         onSuccess={() => {
           console.log("Transaksi berhasil, refresh data...");
+          setIsModalOpen(false);
+          setSelectedTransaction(null);
           fetchTransaksi();
         }}
       />
@@ -327,21 +368,14 @@ export function PembukuanPage() {
   );
 }
 
-type Transaction = {
-  id: number;
-  tanggal: string;
-  keterangan: string;
-  kategori: string;
-  status: string;
-  jumlah: number;
-};
-
 type Props = {
   transactions: Transaction[];
   isLoading: boolean;
+  onEdit: (transaction: Transaction) => void;
+  onDelete: (transaction: Transaction) => void;
 };
 
-function PemasukanContent({ transactions, isLoading }: Props) {
+function PemasukanContent({ transactions, isLoading, onEdit, onDelete }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -391,7 +425,12 @@ function PemasukanContent({ transactions, isLoading }: Props) {
                 Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
               </td>
               <td className="py-4 text-center">
-                <button className="text-sm text-gray-700 hover:text-gray-900">Edit</button>
+                <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </td>
             </tr>
           ))}
@@ -401,7 +440,7 @@ function PemasukanContent({ transactions, isLoading }: Props) {
   );
 }
 
-function PengeluaranContent({ transactions, isLoading }: Props) {
+function PengeluaranContent({ transactions, isLoading, onEdit, onDelete }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -451,7 +490,12 @@ function PengeluaranContent({ transactions, isLoading }: Props) {
                 Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
               </td>
               <td className="py-4 text-center">
-                <button className="text-sm text-gray-700 hover:text-gray-900">Edit</button>
+                <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </td>
             </tr>
           ))}
