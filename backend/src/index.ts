@@ -8,6 +8,7 @@ import transaksiRoutes, { uploadRouter } from './routes/transaksi';
 import authRoutes from './routes/auth';
 import perencanaanRoutes from './routes/perencanaan';
 import asetRoutes from './routes/aset';
+import inventarisRoutes from './routes/inventaris';
 
 dotenv.config();
 
@@ -39,6 +40,7 @@ app.use('/api/transaksi', transaksiRoutes);
 app.use('/api/transaksi/upload', uploadRouter);
 app.use('/api/perencanaan', perencanaanRoutes);
 app.use('/api/aset', asetRoutes);
+app.use('/api/inventaris', inventarisRoutes);
 
 // ==========================
 // ROOT ENDPOINT
