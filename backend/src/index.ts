@@ -7,6 +7,7 @@ import { testConnection } from './config/db';
 import transaksiRoutes, { uploadRouter } from './routes/transaksi';
 import authRoutes from './routes/auth';
 import perencanaanRoutes from './routes/perencanaan';
+import asetRoutes from './routes/aset';
 
 dotenv.config();
 
@@ -37,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/transaksi', transaksiRoutes);
 app.use('/api/transaksi/upload', uploadRouter);
 app.use('/api/perencanaan', perencanaanRoutes);
+app.use('/api/aset', asetRoutes);
 
 // ==========================
 // ROOT ENDPOINT

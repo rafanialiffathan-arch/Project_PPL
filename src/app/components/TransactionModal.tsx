@@ -1,5 +1,5 @@
-import { X, Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { X, Loader2, Upload, FileText, CheckCircle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "../../lib/api";
 
 interface TransactionModalProps {
@@ -34,6 +34,9 @@ export function TransactionModal({
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("pending");
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [errors, setErrors] = useState<{
     tanggal?: string;
     description?: string;
@@ -49,16 +52,17 @@ export function TransactionModal({
 
   // Fill form when editing
   useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    
     if (editData) {
-      setTanggal(editData.tanggal ?? "");
-      setInvoiceNumber((editData.nomor_invoice as string) || "");
-      setDescription(editData.keterangan ?? "");
-      setAmount(String(editData.jumlah) ?? "");
-      setCategory(editData.kategori ?? "");
-      setStatus(editData.status ?? "pending");
+      setTanggal(String(editData.tanggal ?? today));
+      setInvoiceNumber(String(editData.nomor_invoice ?? ""));
+      setDescription(String(editData.keterangan || ""));
+      setAmount(String(editData.jumlah || ""));
+      setCategory(String(editData.kategori || ""));
+      setStatus(String(editData.status || "pending"));
     } else {
       // Reset form when adding new
-      const today = new Date().toISOString().split('T')[0];
       setTanggal(today);
       setInvoiceNumber("");
       setDescription("");
@@ -128,6 +132,56 @@ export function TransactionModal({
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Ukuran file maksimal 5MB!");
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Format file tidak valid! Gunakan JPG, PNG, atau PDF.");
+      return;
+    }
+
+    setSelectedFile(file);
+    setUploadProgress(0);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Ukuran file maksimal 5MB!");
+      return;
+    }
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Format file tidak valid! Gunakan JPG, PNG, atau PDF.");
+      return;
+    }
+
+    setSelectedFile(file);
+    setUploadProgress(0);
+  };
+
+  const removeFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = async () => {
     const newErrors: typeof errors = {};
 
@@ -153,26 +207,35 @@ export function TransactionModal({
     }
 
     setIsLoading(true);
+    setUploadProgress(0);
 
     try {
-      const payload = {
-        tanggal,
-        keterangan: description,
-        jumlah: Number(amount.replace(/\D/g, "")),
-        tipe: type,
-        kategori: category,
-        status,
-        nomor_invoice: invoiceNumber || null,
-      };
+      // Create FormData for file upload
+      const formData = new FormData();
+      formData.append('tanggal', tanggal);
+      formData.append('keterangan', description);
+      formData.append('jumlah', String(Number(amount.replace(/\D/g, ""))));
+      formData.append('tipe', type);
+      formData.append('kategori', category);
+      formData.append('status', status);
+      if (invoiceNumber) {
+        formData.append('nomor_invoice', invoiceNumber);
+      }
+      if (selectedFile) {
+        formData.append('bukti_transaksi', selectedFile);
+      }
 
       const endpoint = editData 
-        ? `/transaksi/${editData.id}` 
-        : '/transaksi';
+        ? `/transaksi/upload/${editData.id}` 
+        : '/transaksi/upload';
       const method = editData ? 'PUT' : 'POST';
 
-      const res = await apiFetch(endpoint, {
+      const res = await fetch(`http://localhost:5000/api${endpoint}`, {
         method,
-        body: JSON.stringify(payload),
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+        body: formData,
       });
 
       const data = await res.json();
@@ -187,7 +250,9 @@ export function TransactionModal({
       setAmount("");
       setCategory("");
       setSuggestedCategory("");
+      setSelectedFile(null);
       setErrors({});
+      setUploadProgress(100);
       onClose();
       onSuccess(); // Refresh table
     } catch {
@@ -378,18 +443,63 @@ export function TransactionModal({
             )}
           </div>
 
+          {/* Upload Bukti Transaksi */}
           <div>
             <label className="block text-sm text-gray-700 mb-2">
               Upload Bukti Transaksi
             </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
-              <p className="text-sm text-gray-600">
-                Klik untuk upload atau drag & drop
-              </p>
-              <p className="text-xs text-gray-500 mt-1">
-                PDF, JPG, PNG (max 5MB)
-              </p>
-            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              accept=".jpg,.jpeg,.png,.pdf"
+              className="hidden"
+              id="file-upload"
+            />
+            {!selectedFile ? (
+              <label 
+                htmlFor="file-upload"
+                className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer block"
+              >
+                <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                <p className="text-sm text-gray-600">
+                  Klik untuk upload atau drag & drop
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  PDF, JPG, PNG (max 5MB)
+                </p>
+              </label>
+            ) : (
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gray-200 rounded-lg flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-gray-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 truncate max-w-[200px]">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <button
+                      type="button"
+                      onClick={removeFile}
+                      className="text-sm text-red-500 hover:text-red-700"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer Actions */}

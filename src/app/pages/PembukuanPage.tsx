@@ -16,6 +16,18 @@ type Transaction = {
   nomor_invoice?: string | null;
 };
 
+type Aset = {
+  id: number;
+  nama_aset: string;
+  kategori: string;
+  nilai_aset: number;
+  tanggal_perolehan: string;
+  umur_ekonomis: number;
+  status: string;
+  akumulasi_depresiasi: number;
+  nilai_buku: number;
+};
+
 export function PembukuanPage() {
   const [activeTab, setActiveTab] = useState<TabType>("pemasukan");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,6 +35,11 @@ export function PembukuanPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+
+  // Aset Tetap state
+  const [asetList, setAsetList] = useState<Aset[]>([]);
+  const [asetLoading, setAsetLoading] = useState(false);
+  const [selectedAset, setSelectedAset] = useState<Aset | null>(null);
 
   const fetchTransaksi = async () => {
     setIsLoading(true);
@@ -39,8 +56,51 @@ export function PembukuanPage() {
     }
   };
 
+  // Fetch Aset Tetap
+  const fetchAset = async () => {
+    setAsetLoading(true);
+    try {
+      const res = await apiFetch("/aset");
+      if (res.ok) {
+        const data = await res.json();
+        setAsetList(data);
+      }
+    } catch (err) {
+      console.error("Gagal fetch aset:", err);
+    } finally {
+      setAsetLoading(false);
+    }
+  };
+
+  const handleEditAset = (aset: Aset) => {
+    setSelectedAset(aset);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteAset = async (aset: Aset) => {
+    const confirmed = window.confirm(`Yakin ingin menghapus aset "${aset.nama_aset}"?\n\nTindakan ini tidak dapat dibatalkan.`);
+    if (!confirmed) return;
+
+    try {
+      const res = await apiFetch(`/aset/${aset.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Aset berhasil dihapus!");
+        fetchAset();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Gagal menghapus aset!");
+      }
+    } catch {
+      alert("Koneksi ke server gagal. Pastikan backend menyala.");
+    }
+  };
+
   useEffect(() => {
     fetchTransaksi();
+    fetchAset();
   }, []);
 
   const handleAddData = () => {
@@ -346,7 +406,14 @@ export function PembukuanPage() {
           {activeTab === "pemasukan" && <PemasukanContent transactions={transactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} onEdit={handleEdit} onDelete={handleDelete} />}
           {activeTab === "pengeluaran" && <PengeluaranContent transactions={transactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} onEdit={handleEdit} onDelete={handleDelete} />}
           {activeTab === "kas" && <KasContent />}
-          {activeTab === "aset" && <AsetContent />}
+          {activeTab === "aset" && (
+            <AsetContent
+              asetList={asetList}
+              isLoading={asetLoading}
+              onEdit={handleEditAset}
+              onDelete={handleDeleteAset}
+            />
+          )}
           {activeTab === "inventaris" && <InventarisContent />}
           {activeTab === "rekonsiliasi" && <RekonsiliasiContent />}
         </div>
@@ -534,7 +601,31 @@ function KasContent() {
   );
 }
 
-function AsetContent() {
+// AsetContent Props
+type AsetProps = {
+  asetList: Aset[];
+  isLoading: boolean;
+  onEdit: (aset: Aset) => void;
+  onDelete: (aset: Aset) => void;
+};
+
+function AsetContent({ asetList, isLoading, onEdit, onDelete }: AsetProps) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (asetList.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        Belum ada data aset tetap. Klik "Tambah Transaksi" untuk menambah aset.
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
@@ -558,37 +649,52 @@ function AsetContent() {
             <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
               Nilai Buku
             </th>
+            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
+              Status
+            </th>
+            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
+              Aksi
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm font-mono text-gray-600">AST-001</td>
-            <td className="py-4 text-sm text-gray-900">Gedung Kantor</td>
-            <td className="py-4 text-sm text-gray-600">Bangunan</td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 2.500.000.000
-            </td>
-            <td className="py-4 text-sm text-gray-600 text-right font-mono">
-              Rp 625.000.000
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 1.875.000.000
-            </td>
-          </tr>
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm font-mono text-gray-600">AST-002</td>
-            <td className="py-4 text-sm text-gray-900">Kendaraan Operasional</td>
-            <td className="py-4 text-sm text-gray-600">Kendaraan</td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 450.000.000
-            </td>
-            <td className="py-4 text-sm text-gray-600 text-right font-mono">
-              Rp 180.000.000
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 270.000.000
-            </td>
-          </tr>
+          {asetList.map((aset, index) => (
+            <tr key={aset.id} className="hover:bg-gray-50">
+              <td className="py-4 text-sm font-mono text-gray-600">
+                AST-{String(index + 1).padStart(3, "0")}
+              </td>
+              <td className="py-4 text-sm text-gray-900">{aset.nama_aset}</td>
+              <td className="py-4 text-sm text-gray-600 capitalize">{aset.kategori}</td>
+              <td className="py-4 text-sm text-gray-900 text-right font-mono">
+                Rp {new Intl.NumberFormat("id-ID").format(Number(aset.nilai_aset))}
+              </td>
+              <td className="py-4 text-sm text-gray-600 text-right font-mono">
+                Rp {new Intl.NumberFormat("id-ID").format(Number(aset.akumulasi_depresiasi || 0))}
+              </td>
+              <td className="py-4 text-sm text-gray-900 text-right font-mono">
+                Rp {new Intl.NumberFormat("id-ID").format(Number(aset.nilai_buku || aset.nilai_aset))}
+              </td>
+              <td className="py-4 text-center">
+                <span className={`inline-flex px-2 py-1 rounded text-xs ${
+                  aset.status === "aktif"
+                    ? "bg-green-50 text-green-700"
+                    : aset.status === "dijual"
+                    ? "bg-blue-50 text-blue-700"
+                    : "bg-red-50 text-red-700"
+                }`}>
+                  {aset.status}
+                </span>
+              </td>
+              <td className="py-4 text-center">
+                <button onClick={() => onEdit(aset)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => onDelete(aset)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
