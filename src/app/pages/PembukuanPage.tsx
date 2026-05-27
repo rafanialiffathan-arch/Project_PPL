@@ -291,7 +291,15 @@ export function PembukuanPage() {
             <Download className="w-4 h-4" />
             Export
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800" onClick={handleAddData}>
+          <button
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+              activeTab === "kas" || activeTab === "rekonsiliasi"
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-gray-900 text-white hover:bg-gray-800"
+            }`}
+            onClick={handleAddData}
+            disabled={activeTab === "kas" || activeTab === "rekonsiliasi"}
+          >
             <Plus className="w-4 h-4" />
             Tambah Transaksi
           </button>
@@ -469,7 +477,12 @@ export function PembukuanPage() {
         <div className="p-6">
           {activeTab === "pemasukan" && <PemasukanContent transactions={transactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} onEdit={handleEdit} onDelete={handleDelete} />}
           {activeTab === "pengeluaran" && <PengeluaranContent transactions={transactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} onEdit={handleEdit} onDelete={handleDelete} />}
-          {activeTab === "kas" && <KasContent />}
+          {activeTab === "kas" && (
+            <KasContent
+              transactions={transactions}
+              isLoading={isLoading}
+            />
+          )}
           {activeTab === "aset" && (
             <AsetContent
               asetList={asetList}
@@ -674,26 +687,118 @@ function PengeluaranContent({ transactions, isLoading, onEdit, onDelete }: Props
   );
 }
 
-function KasContent() {
+// KasContent Props
+type KasProps = {
+  transactions: Transaction[];
+  isLoading: boolean;
+};
+
+function KasContent({ transactions, isLoading }: KasProps) {
+  // Hitung dari real transactions
+  const totalPemasukan = transactions
+    .filter((t) => t.tipe === "pemasukan")
+    .reduce((sum, t) => sum + Number(t.jumlah), 0);
+
+  const totalPengeluaran = transactions
+    .filter((t) => t.tipe === "pengeluaran")
+    .reduce((sum, t) => sum + Number(t.jumlah), 0);
+
+  const saldoAwal = 0;
+  const totalMutasi = totalPemasukan - totalPengeluaran;
+  const saldoAkhir = saldoAwal + totalMutasi;
+
+  const formatCurrency = (num: number) =>
+    new Intl.NumberFormat("id-ID").format(Math.abs(num));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Summary Boxes */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="text-sm text-gray-500 mb-1">Saldo Awal</div>
-          <div className="font-mono text-gray-900">Rp 425.000.000</div>
+          <div className="font-mono text-xl text-gray-900">
+            Rp {formatCurrency(saldoAwal)}
+          </div>
         </div>
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="text-sm text-gray-500 mb-1">Total Mutasi</div>
-          <div className="font-mono text-gray-900">+Rp 25.000.000</div>
+          <div className={`font-mono text-xl ${totalMutasi >= 0 ? "text-green-700" : "text-red-600"}`}>
+            {totalMutasi >= 0 ? "+" : "-"} Rp {formatCurrency(totalMutasi)}
+          </div>
+          <div className="text-xs text-gray-400 mt-1">
+            {transactions.length} transaksi
+          </div>
         </div>
         <div className="p-4 bg-gray-50 rounded-lg">
           <div className="text-sm text-gray-500 mb-1">Saldo Akhir</div>
-          <div className="font-mono text-gray-900">Rp 450.000.000</div>
+          <div className={`font-mono text-xl ${saldoAkhir >= 0 ? "text-gray-900" : "text-red-600"}`}>
+            Rp {formatCurrency(saldoAkhir)}
+          </div>
         </div>
       </div>
-      <div className="text-sm text-gray-500">
-        Tabel mutasi kas akan ditampilkan di sini...
-      </div>
+
+      {/* Tabel Mutasi Kas */}
+      {transactions.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          Belum ada mutasi kas
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+                <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">No. Referensi</th>
+                <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Deskripsi</th>
+                <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
+                <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Tipe</th>
+                <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {transactions.map((t) => (
+                <tr key={t.id} className="hover:bg-gray-50">
+                  <td className="py-4 text-sm text-gray-900">
+                    {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                  </td>
+                  <td className="py-4 text-sm font-mono text-gray-600">
+                    {t.nomor_invoice || `TRX-${String(t.id).padStart(4, "0")}`}
+                  </td>
+                  <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
+                  <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
+                  <td className="py-4 text-center">
+                    <span className={`inline-flex px-2 py-1 rounded text-xs ${
+                      t.tipe === "pemasukan" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"
+                    }`}>
+                      {t.tipe === "pemasukan" ? "Pemasukan" : "Pengeluaran"}
+                    </span>
+                  </td>
+                  <td className="py-4 text-center">
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${t.status === "valid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
+                      {t.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                      {t.status === "valid" ? "Valid" : "Pending"}
+                    </span>
+                  </td>
+                  <td className={`py-4 text-sm text-right font-mono ${
+                    t.tipe === "pemasukan" ? "text-green-700" : "text-red-600"
+                  }`}>
+                    {t.tipe === "pemasukan" ? "+" : "-"} Rp {formatCurrency(Number(t.jumlah))}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

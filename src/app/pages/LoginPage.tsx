@@ -9,13 +9,13 @@ export function LoginPage() {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
 
-    const email = (form.elements.namedItem("email") as HTMLInputElement).value;
+    const identifier = (form.elements.namedItem("identifier") as HTMLInputElement).value;
     const password = (form.elements.namedItem("password") as HTMLInputElement).value;
 
     try {
       const res = await apiFetch("/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ identifier, password }),
       });
 
       const data = await res.json();
@@ -85,8 +85,8 @@ export function LoginPage() {
               </label>
               <input
                 type="text"
-                name="email"
-                placeholder="admin@accountech.com"
+                name="identifier"
+                placeholder="admin@accountech.com atau username"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
               />
             </div>

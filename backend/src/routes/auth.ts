@@ -17,15 +17,30 @@ router.post('/register', async (req, res) => {
   }
 
   try {
-    // Cek email / username sudah ada
-    const [existing]: any = await pool.query(
-      'SELECT id FROM users WHERE email = ? OR username = ?',
-      [email, username]
+    // Cek email separately
+    const [emailExists]: any = await pool.query(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
     );
 
-    if (existing.length > 0) {
+    // Cek username separately
+    const [usernameExists]: any = await pool.query(
+      'SELECT id FROM users WHERE username = ?',
+      [username]
+    );
+
+    // Return specific error message
+    if (emailExists.length > 0 && usernameExists.length > 0) {
       return res.status(409).json({
-        message: 'Email atau username sudah digunakan'
+        message: 'Email dan username sudah digunakan.'
+      });
+    } else if (emailExists.length > 0) {
+      return res.status(409).json({
+        message: 'Email sudah pernah didaftarkan/digunakan.'
+      });
+    } else if (usernameExists.length > 0) {
+      return res.status(409).json({
+        message: 'Username sudah terdaftar. Silakan gunakan username lain.'
       });
     }
 
@@ -56,24 +71,25 @@ router.post('/register', async (req, res) => {
 // LOGIN
 // ==========================
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { identifier, password } = req.body;
 
   // Validasi
-  if (!email || !password) {
+  if (!identifier || !password) {
     return res.status(400).json({
-      message: 'Email dan password wajib diisi'
+      message: 'Username/email dan password wajib diisi'
     });
   }
 
   try {
+    // Cari user berdasarkan email ATAU username
     const [rows]: any = await pool.query(
-      'SELECT * FROM users WHERE email = ?',
-      [email]
+      'SELECT * FROM users WHERE email = ? OR username = ?',
+      [identifier, identifier]
     );
 
     if (rows.length === 0) {
       return res.status(401).json({
-        message: 'Email atau password salah'
+        message: 'Username atau email belum terdaftar.'
       });
     }
 
@@ -83,7 +99,7 @@ router.post('/login', async (req, res) => {
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(401).json({
-        message: 'Email atau password salah'
+        message: 'Username/email atau password salah.'
       });
     }
 
