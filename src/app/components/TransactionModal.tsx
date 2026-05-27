@@ -15,6 +15,7 @@ interface TransactionModalProps {
     kategori: string;
     status: string;
     tanggal: string;
+    nomor_invoice?: string | null;
   } | null;
 }
 
@@ -26,6 +27,7 @@ export function TransactionModal({
   editData 
 }: TransactionModalProps) {
   const [tanggal, setTanggal] = useState("");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [description, setDescription] = useState("");
   const [suggestedCategory, setSuggestedCategory] = useState("");
   const [amount, setAmount] = useState("");
@@ -49,6 +51,7 @@ export function TransactionModal({
   useEffect(() => {
     if (editData) {
       setTanggal(editData.tanggal ?? "");
+      setInvoiceNumber((editData.nomor_invoice as string) || "");
       setDescription(editData.keterangan ?? "");
       setAmount(String(editData.jumlah) ?? "");
       setCategory(editData.kategori ?? "");
@@ -57,6 +60,7 @@ export function TransactionModal({
       // Reset form when adding new
       const today = new Date().toISOString().split('T')[0];
       setTanggal(today);
+      setInvoiceNumber("");
       setDescription("");
       setAmount("");
       setCategory("");
@@ -158,6 +162,7 @@ export function TransactionModal({
         tipe: type,
         kategori: category,
         status,
+        nomor_invoice: invoiceNumber || null,
       };
 
       const endpoint = editData 
@@ -228,7 +233,10 @@ export function TransactionModal({
               </label>
               <input
                 type="text"
+                name="invoiceNumber"
                 placeholder={type === "pemasukan" ? "INV-2026-001" : "VCH-2026-001"}
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
               />
             </div>

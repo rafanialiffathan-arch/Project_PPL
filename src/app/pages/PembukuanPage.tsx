@@ -13,6 +13,7 @@ type Transaction = {
   status: string;
   jumlah: number;
   tipe: string;
+  nomor_invoice?: string | null;
 };
 
 export function PembukuanPage() {
@@ -412,7 +413,9 @@ function PemasukanContent({ transactions, isLoading, onEdit, onDelete }: Props) 
               <td className="py-4 text-sm text-gray-900">
                 {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
               </td>
-              <td className="py-4 text-sm font-mono text-gray-600">INV-{String(t.id).padStart(4, "0")}</td>
+              <td className="py-4 text-sm font-mono text-gray-600">
+                {t.nomor_invoice || `INV-${String(t.id).padStart(4, "0")}`}
+              </td>
               <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
               <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
               <td className="py-4 text-center">
@@ -477,7 +480,9 @@ function PengeluaranContent({ transactions, isLoading, onEdit, onDelete }: Props
               <td className="py-4 text-sm text-gray-900">
                 {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
               </td>
-              <td className="py-4 text-sm font-mono text-gray-600">VCH-{String(t.id).padStart(4, "0")}</td>
+              <td className="py-4 text-sm font-mono text-gray-600">
+                {t.nomor_invoice || `VCH-${String(t.id).padStart(4, "0")}`}
+              </td>
               <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
               <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
               <td className="py-4 text-center">

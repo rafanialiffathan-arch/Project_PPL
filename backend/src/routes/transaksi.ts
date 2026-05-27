@@ -24,7 +24,7 @@ router.get('/', async (req: AuthRequest, res) => {
 
 // POST /api/transaksi — tambah transaksi baru
 router.post('/', async (req: AuthRequest, res) => {
-  const { keterangan, jumlah, tipe, kategori, status, tanggal } = req.body;
+  const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
 
   if (!keterangan || !jumlah || !tipe || !tanggal) {
     res.status(400).json({ message: 'Field wajib: keterangan, jumlah, tipe, tanggal' });
@@ -34,15 +34,22 @@ router.post('/', async (req: AuthRequest, res) => {
   try {
     const [result] = await pool.query(
       `INSERT INTO transaksi
-         (user_id, keterangan, jumlah, tipe, kategori, status, tanggal)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+         (user_id, keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.user!.id, keterangan, jumlah, tipe,
-       kategori || 'umum', status || 'pending', tanggal]
+       kategori || 'umum', status || 'pending', tanggal, nomor_invoice || null]
     ) as any;
 
     res.status(201).json({
       status: 'success',
-      data: { id: result.insertId, keterangan, jumlah, tipe, tanggal }
+      data: { 
+        id: result.insertId, 
+        keterangan, 
+        jumlah, 
+        tipe, 
+        tanggal,
+        nomor_invoice: nomor_invoice || null
+      }
     });
   } catch (err) {
     res.status(500).json({ message: 'Gagal menambah transaksi', error: err });
@@ -51,7 +58,7 @@ router.post('/', async (req: AuthRequest, res) => {
 
 // PUT /api/transaksi/:id — update transaksi
 router.put('/:id', async (req: AuthRequest, res) => {
-  const { keterangan, jumlah, tipe, kategori, status, tanggal } = req.body;
+  const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
 
   if (!keterangan || !jumlah || !tipe || !tanggal) {
     res.status(400).json({ message: 'Field wajib: keterangan, jumlah, tipe, tanggal' });
@@ -61,10 +68,10 @@ router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const [result] = await pool.query(
       `UPDATE transaksi 
-       SET keterangan = ?, jumlah = ?, tipe = ?, kategori = ?, status = ?, tanggal = ?
+       SET keterangan = ?, jumlah = ?, tipe = ?, kategori = ?, status = ?, tanggal = ?, nomor_invoice = ?
        WHERE id = ? AND user_id = ?`,
       [keterangan, jumlah, tipe, kategori || 'umum', status || 'pending', tanggal, 
-       req.params.id, req.user!.id]
+       nomor_invoice || null, req.params.id, req.user!.id]
     ) as any;
 
     if (result.affectedRows === 0) {
@@ -74,7 +81,16 @@ router.put('/:id', async (req: AuthRequest, res) => {
 
     res.json({
       status: 'success',
-      data: { id: req.params.id, keterangan, jumlah, tipe, kategori, status, tanggal }
+      data: { 
+        id: req.params.id, 
+        keterangan, 
+        jumlah, 
+        tipe, 
+        kategori, 
+        status, 
+        tanggal,
+        nomor_invoice: nomor_invoice || null
+      }
     });
   } catch (err) {
     res.status(500).json({ message: 'Gagal update transaksi', error: err });
