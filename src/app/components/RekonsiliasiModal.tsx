@@ -39,7 +39,10 @@ export function RekonsiliasiModal({ isOpen, onClose, editData, onSuccess }: Reko
         setNomorRekening(editData.nomor_rekening || "");
         setSaldoBuku(String(editData.saldo_buku ?? ""));
         setSaldoBank(String(editData.saldo_bank ?? ""));
-        setTanggal(editData.tanggal_rekonsiliasi ?? "");
+        // Parse ISO datetime ke YYYY-MM-DD untuk input type="date"
+        const rawDate = editData.tanggal_rekonsiliasi;
+        const formattedDate = rawDate ? rawDate.split('T')[0] : "";
+        setTanggal(formattedDate || "");
         setStatus(editData.status || "pending");
         setCatatan(editData.catatan ?? "");
       } else {
@@ -47,7 +50,7 @@ export function RekonsiliasiModal({ isOpen, onClose, editData, onSuccess }: Reko
         setNomorRekening("");
         setSaldoBuku("");
         setSaldoBank("");
-        setTanggal(new Date().toISOString().split("T")[0]);
+        setTanggal(new Date().toISOString().split("T")[0] || "");
         setStatus("pending");
         setCatatan("");
       }

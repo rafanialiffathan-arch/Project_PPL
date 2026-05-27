@@ -104,7 +104,7 @@ export function PembukuanPage() {
   };
 
   const handleDeleteAset = async (aset: Aset) => {
-    const confirmed = window.confirm(`Yakin ingin menghapus aset "${aset.nama_aset}"?\n\nTindakan ini tidak dapat dibatalkan.`);
+    const confirmed = window.confirm(`Yakin ingin menghapus aset "${aset.nama_aset}"?\n\nKlik OK untuk menghapus, atau Cancel untuk membatalkan.`);
     if (!confirmed) return;
 
     try {
@@ -131,7 +131,7 @@ export function PembukuanPage() {
   };
 
   const handleDeleteInventaris = async (inventaris: any) => {
-    const confirmed = window.confirm(`Yakin ingin menghapus "${inventaris.nama_barang}"?\n\nTindakan ini tidak dapat dibatalkan.`);
+    const confirmed = window.confirm(`Yakin ingin menghapus "${inventaris.nama_barang}"?\n\nKlik OK untuk menghapus, atau Cancel untuk membatalkan.`);
     if (!confirmed) return;
 
     try {
@@ -182,7 +182,7 @@ export function PembukuanPage() {
   };
 
   const handleDelete = async (transaction: Transaction) => {
-    const confirmed = window.confirm(`Yakin ingin menghapus transaksi "${transaction.keterangan}"?\n\nTindakan ini tidak dapat dibatalkan.`);
+    const confirmed = window.confirm(`Yakin ingin menghapus transaksi "${transaction.keterangan}"?\n\nKlik OK untuk menghapus, atau Cancel untuk membatalkan.`);
     if (!confirmed) return;
 
     try {
@@ -1045,7 +1045,7 @@ function RekonsiliasiContent({ onEdit, onDelete }: RekonsiliasiProps) {
   };
 
   const handleDeleteRekonsiliasi = async (item: any) => {
-    const confirmed = window.confirm(`Yakin ingin menghapus rekonsiliasi "${item.nama_bank}"?\n\nTindakan ini tidak dapat dibatalkan.`);
+    const confirmed = window.confirm(`Yakin ingin menghapus rekonsiliasi "${item.nama_bank}"?\n\nKlik OK untuk menghapus, atau Cancel untuk membatalkan.`);
     if (!confirmed) return;
 
     try {
