@@ -1,9 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 import { testConnection } from './config/db';
 
-import transaksiRoutes from './routes/transaksi';
+import transaksiRoutes, { uploadRouter } from './routes/transaksi';
 import authRoutes from './routes/auth';
 import perencanaanRoutes from './routes/perencanaan';
 
@@ -23,10 +24,18 @@ app.use(cors({
 app.use(express.json());
 
 // ==========================
+// STATIC FILES (UPLOADS)
+// ==========================
+const uploadsPath = path.resolve(process.cwd(), 'uploads');
+console.log('Serving uploads from:', uploadsPath);
+app.use('/uploads', express.static(uploadsPath));
+
+// ==========================
 // ROUTES
 // ==========================
 app.use('/api/auth', authRoutes);
 app.use('/api/transaksi', transaksiRoutes);
+app.use('/api/transaksi/upload', uploadRouter);
 app.use('/api/perencanaan', perencanaanRoutes);
 
 // ==========================
