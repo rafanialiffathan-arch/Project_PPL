@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar, Trash2, Pencil } from "lucide-react";
 import { TransactionModal } from "../components/TransactionModal.tsx";
+import { AsetModal } from "../components/AsetModal.tsx";
+import { InventarisModal } from "../components/InventarisModal.tsx";
 import { apiFetch } from "../../lib/api";
 
 type TabType = "pemasukan" | "pengeluaran" | "kas" | "aset" | "inventaris" | "rekonsiliasi";
@@ -40,6 +42,13 @@ export function PembukuanPage() {
   const [asetList, setAsetList] = useState<Aset[]>([]);
   const [asetLoading, setAsetLoading] = useState(false);
   const [selectedAset, setSelectedAset] = useState<Aset | null>(null);
+  const [isAsetModalOpen, setIsAsetModalOpen] = useState(false);
+
+  // Inventaris state
+  const [inventarisList, setInventarisList] = useState<any[]>([]);
+  const [inventarisLoading, setInventarisLoading] = useState(false);
+  const [selectedInventaris, setSelectedInventaris] = useState<any | null>(null);
+  const [isInventarisModalOpen, setIsInventarisModalOpen] = useState(false);
 
   const fetchTransaksi = async () => {
     setIsLoading(true);
@@ -72,9 +81,25 @@ export function PembukuanPage() {
     }
   };
 
+  // Fetch Inventaris
+  const fetchInventaris = async () => {
+    setInventarisLoading(true);
+    try {
+      const res = await apiFetch("/inventaris");
+      if (res.ok) {
+        const data = await res.json();
+        setInventarisList(data);
+      }
+    } catch (err) {
+      console.error("Gagal fetch inventaris:", err);
+    } finally {
+      setInventarisLoading(false);
+    }
+  };
+
   const handleEditAset = (aset: Aset) => {
     setSelectedAset(aset);
-    setIsModalOpen(true);
+    setIsAsetModalOpen(true);
   };
 
   const handleDeleteAset = async (aset: Aset) => {
@@ -98,14 +123,53 @@ export function PembukuanPage() {
     }
   };
 
+  // Inventaris handlers
+  const handleEditInventaris = (inventaris: any) => {
+    setSelectedInventaris(inventaris);
+    setIsInventarisModalOpen(true);
+  };
+
+  const handleDeleteInventaris = async (inventaris: any) => {
+    const confirmed = window.confirm(`Yakin ingin menghapus "${inventaris.nama_barang}"?\n\nTindakan ini tidak dapat dibatalkan.`);
+    if (!confirmed) return;
+
+    try {
+      const res = await apiFetch(`/inventaris/${inventaris.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Inventaris berhasil dihapus!");
+        fetchInventaris();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Gagal menghapus inventaris!");
+      }
+    } catch {
+      alert("Koneksi ke server gagal. Pastikan backend menyala.");
+    }
+  };
+
   useEffect(() => {
     fetchTransaksi();
     fetchAset();
+    fetchInventaris();
   }, []);
 
   const handleAddData = () => {
-    setSelectedTransaction(null);
-    setIsModalOpen(true);
+    if (activeTab === "aset") {
+      // Buka AsetModal untuk tab aset
+      setSelectedAset(null);
+      setIsAsetModalOpen(true);
+    } else if (activeTab === "inventaris") {
+      // Buka InventarisModal untuk tab inventaris
+      setSelectedInventaris(null);
+      setIsInventarisModalOpen(true);
+    } else {
+      // Buka TransactionModal untuk tab lainnya
+      setSelectedTransaction(null);
+      setIsModalOpen(true);
+    }
   };
 
   const handleEdit = (transaction: Transaction) => {
@@ -414,12 +478,19 @@ export function PembukuanPage() {
               onDelete={handleDeleteAset}
             />
           )}
-          {activeTab === "inventaris" && <InventarisContent />}
+          {activeTab === "inventaris" && (
+            <InventarisContent
+              inventarisList={inventarisList}
+              isLoading={inventarisLoading}
+              onEdit={handleEditInventaris}
+              onDelete={handleDeleteInventaris}
+            />
+          )}
           {activeTab === "rekonsiliasi" && <RekonsiliasiContent />}
         </div>
       </div>
 
-      {/* Transaction Modal */}
+      {/* Transaction Modal (untuk pemasukan, pengeluaran, kas, inventaris) */}
       <TransactionModal
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setSelectedTransaction(null); }}
@@ -430,6 +501,32 @@ export function PembukuanPage() {
           setIsModalOpen(false);
           setSelectedTransaction(null);
           fetchTransaksi();
+        }}
+      />
+
+      {/* Aset Modal (khusus untuk aset tetap) */}
+      <AsetModal
+        isOpen={isAsetModalOpen}
+        onClose={() => { setIsAsetModalOpen(false); setSelectedAset(null); }}
+        editData={selectedAset}
+        onSuccess={() => {
+          console.log("Aset berhasil disimpan, refresh data...");
+          setIsAsetModalOpen(false);
+          setSelectedAset(null);
+          fetchAset();
+        }}
+      />
+
+      {/* Inventaris Modal */}
+      <InventarisModal
+        isOpen={isInventarisModalOpen}
+        onClose={() => { setIsInventarisModalOpen(false); setSelectedInventaris(null); }}
+        editData={selectedInventaris}
+        onSuccess={() => {
+          console.log("Inventaris berhasil disimpan, refresh data...");
+          setIsInventarisModalOpen(false);
+          setSelectedInventaris(null);
+          fetchInventaris();
         }}
       />
     </div>
@@ -701,7 +798,31 @@ function AsetContent({ asetList, isLoading, onEdit, onDelete }: AsetProps) {
   );
 }
 
-function InventarisContent() {
+// InventarisContent Props
+type InventarisProps = {
+  inventarisList: any[];
+  isLoading: boolean;
+  onEdit: (inventaris: any) => void;
+  onDelete: (inventaris: any) => void;
+};
+
+function InventarisContent({ inventarisList, isLoading, onEdit, onDelete }: InventarisProps) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (inventarisList.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        Belum ada data inventaris. Klik "Tambah Transaksi" untuk menambah inventaris.
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
@@ -713,6 +834,9 @@ function InventarisContent() {
             <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
               Nama Barang
             </th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Kategori
+            </th>
             <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
               Stok
             </th>
@@ -722,31 +846,54 @@ function InventarisContent() {
             <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
               Total Nilai
             </th>
+            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
+              Status
+            </th>
+            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
+              Aksi
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm font-mono text-gray-600">BRG-001</td>
-            <td className="py-4 text-sm text-gray-900">Laptop Dell XPS 15</td>
-            <td className="py-4 text-sm text-gray-900 text-center">12</td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 18.500.000
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 222.000.000
-            </td>
-          </tr>
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm font-mono text-gray-600">BRG-002</td>
-            <td className="py-4 text-sm text-gray-900">Printer Canon G3000</td>
-            <td className="py-4 text-sm text-gray-900 text-center">5</td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 3.200.000
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 16.000.000
-            </td>
-          </tr>
+          {inventarisList.map((item, index) => (
+            <tr key={item.id} className="hover:bg-gray-50">
+              <td className="py-4 text-sm font-mono text-gray-600">
+                BRG-{String(index + 1).padStart(3, "0")}
+              </td>
+              <td className="py-4 text-sm text-gray-900">{item.nama_barang}</td>
+              <td className="py-4 text-sm text-gray-600 capitalize">{item.kategori}</td>
+              <td className="py-4 text-sm text-gray-900 text-center">
+                {item.jumlah} {item.satuan}
+              </td>
+              <td className="py-4 text-sm text-gray-900 text-right font-mono">
+                Rp {new Intl.NumberFormat("id-ID").format(Number(item.harga_satuan))}
+              </td>
+              <td className="py-4 text-sm text-gray-900 text-right font-mono">
+                Rp {new Intl.NumberFormat("id-ID").format(Number(item.total_nilai))}
+              </td>
+              <td className="py-4 text-center">
+                <span className={`inline-flex px-2 py-1 rounded text-xs ${
+                  item.status === "tersedia"
+                    ? "bg-green-50 text-green-700"
+                    : item.status === "digunakan"
+                    ? "bg-blue-50 text-blue-700"
+                    : item.status === "maintenance"
+                    ? "bg-yellow-50 text-yellow-700"
+                    : "bg-red-50 text-red-700"
+                }`}>
+                  {item.status}
+                </span>
+              </td>
+              <td className="py-4 text-center">
+                <button onClick={() => onEdit(item)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => onDelete(item)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
