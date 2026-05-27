@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react"; // <-- Pastiin ada useEffect
-import { Plus, Search, Filter, Download, Edit, Trash2, CheckCircle, Clock, Calendar } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar } from "lucide-react";
 import { TransactionModal } from "../components/TransactionModal.tsx";
-import axios from "axios"; // <-- Tambahin ini buat nembak API backend
+import { apiFetch } from "../../lib/api";
 
 type TabType = "pemasukan" | "pengeluaran" | "kas" | "aset" | "inventaris" | "rekonsiliasi";
 
@@ -9,10 +9,42 @@ export function PembukuanPage() {
   const [activeTab, setActiveTab] = useState<TabType>("pemasukan");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchTransaksi = async () => {
+    setIsLoading(true);
+    try {
+      const res = await apiFetch("/transaksi");
+      if (res.ok) {
+        const data = await res.json();
+        setTransactions(data);
+      }
+    } catch (err) {
+      console.error("Gagal fetch transaksi:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTransaksi();
+  }, []);
 
   const handleAddData = () => {
     setIsModalOpen(true);
   };
+
+  // Hitung summary dari transactions
+  const totalPemasukan = transactions
+    .filter((t) => t.tipe === "pemasukan")
+    .reduce((sum, t) => sum + Number(t.jumlah), 0);
+  const totalPengeluaran = transactions
+    .filter((t) => t.tipe === "pengeluaran")
+    .reduce((sum, t) => sum + Number(t.jumlah), 0);
+  const netCashFlow = totalPemasukan - totalPengeluaran;
+  const countPemasukan = transactions.filter((t) => t.tipe === "pemasukan").length;
+  const countPengeluaran = transactions.filter((t) => t.tipe === "pengeluaran").length;
 
   const tabs: { id: TabType; label: string }[] = [
     { id: "pemasukan", label: "Pemasukan" },
@@ -233,8 +265,10 @@ export function PembukuanPage() {
                   </div>
                   <div className="text-xs text-green-700">Total Pemasukan</div>
                 </div>
-                <div className="font-mono text-xl text-gray-900">Rp 41.500.000</div>
-                <div className="text-xs text-green-600 mt-1">4 transaksi</div>
+                <div className="font-mono text-xl text-gray-900">
+                  Rp {new Intl.NumberFormat("id-ID").format(totalPemasukan)}
+                </div>
+                <div className="text-xs text-green-600 mt-1">{countPemasukan} transaksi</div>
               </div>
 
               {/* Total Pengeluaran */}
@@ -245,8 +279,10 @@ export function PembukuanPage() {
                   </div>
                   <div className="text-xs text-red-700">Total Pengeluaran</div>
                 </div>
-                <div className="font-mono text-xl text-gray-900">Rp 37.000.000</div>
-                <div className="text-xs text-red-600 mt-1">3 transaksi</div>
+                <div className="font-mono text-xl text-gray-900">
+                  Rp {new Intl.NumberFormat("id-ID").format(totalPengeluaran)}
+                </div>
+                <div className="text-xs text-red-600 mt-1">{countPengeluaran} transaksi</div>
               </div>
 
               {/* Net Cash Flow */}
@@ -257,7 +293,9 @@ export function PembukuanPage() {
                   </div>
                   <div className="text-xs text-blue-700">Net Cash Flow</div>
                 </div>
-                <div className="font-mono text-xl text-green-700">+Rp 4.500.000</div>
+                <div className={`font-mono text-xl ${netCashFlow >= 0 ? "text-green-700" : "text-red-600"}`}>
+                  {netCashFlow >= 0 ? "+" : "-"} Rp {new Intl.NumberFormat("id-ID").format(Math.abs(netCashFlow))}
+                </div>
                 <div className="text-xs text-blue-600 mt-1">Selisih periode ini</div>
               </div>
             </div>
@@ -266,8 +304,8 @@ export function PembukuanPage() {
 
         {/* Tab Content */}
         <div className="p-6">
-          {activeTab === "pemasukan" && <PemasukanContent />}
-          {activeTab === "pengeluaran" && <PengeluaranContent />}
+          {activeTab === "pemasukan" && <PemasukanContent transactions={transactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} />}
+          {activeTab === "pengeluaran" && <PengeluaranContent transactions={transactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} />}
           {activeTab === "kas" && <KasContent />}
           {activeTab === "aset" && <AsetContent />}
           {activeTab === "inventaris" && <InventarisContent />}
@@ -280,249 +318,143 @@ export function PembukuanPage() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         type={activeTab === "rekonsiliasi" ? "kas" : activeTab}
+        onSuccess={() => {
+          console.log("Transaksi berhasil, refresh data...");
+          fetchTransaksi();
+        }}
       />
     </div>
   );
 }
 
-function PemasukanContent() {
+type Transaction = {
+  id: number;
+  tanggal: string;
+  keterangan: string;
+  kategori: string;
+  status: string;
+  jumlah: number;
+};
+
+type Props = {
+  transactions: Transaction[];
+  isLoading: boolean;
+};
+
+function PemasukanContent({ transactions, isLoading }: Props) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (transactions.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        Belum ada data transaksi pemasukan
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Tanggal
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              No. Referensi
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Deskripsi
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Kategori
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Status
-            </th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Nominal
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Aksi
-            </th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">No. Referensi</th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Deskripsi</th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
+            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal</th>
+            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm text-gray-900">09 Apr 2026</td>
-            <td className="py-4 text-sm font-mono text-gray-600">INV-0045</td>
-            <td className="py-4 text-sm text-gray-900">
-              Penjualan Produk - PT Maju Jaya
-            </td>
-            <td className="py-4 text-sm text-gray-600">Penjualan</td>
-            <td className="py-4 text-center">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
-                <CheckCircle className="w-3 h-3" />
-                Valid
-              </span>
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 15.500.000
-            </td>
-            <td className="py-4 text-center">
-              <button className="text-sm text-gray-700 hover:text-gray-900">
-                Edit
-              </button>
-            </td>
-          </tr>
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm text-gray-900">08 Apr 2026</td>
-            <td className="py-4 text-sm font-mono text-gray-600">INV-0044</td>
-            <td className="py-4 text-sm text-gray-900">
-              Jasa Konsultasi - CV Berkah
-            </td>
-            <td className="py-4 text-sm text-gray-600">Jasa</td>
-            <td className="py-4 text-center">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-50 text-yellow-700 rounded text-xs">
-                <Clock className="w-3 h-3" />
-                Pending
-              </span>
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 12.000.000
-            </td>
-            <td className="py-4 text-center">
-              <button className="text-sm text-gray-700 hover:text-gray-900">
-                Edit
-              </button>
-            </td>
-          </tr>
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm text-gray-900">07 Apr 2026</td>
-            <td className="py-4 text-sm font-mono text-gray-600">INV-0043</td>
-            <td className="py-4 text-sm text-gray-900">
-              Penjualan Produk - UD Sejahtera
-            </td>
-            <td className="py-4 text-sm text-gray-600">Penjualan</td>
-            <td className="py-4 text-center">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
-                <CheckCircle className="w-3 h-3" />
-                Valid
-              </span>
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 8.750.000
-            </td>
-            <td className="py-4 text-center">
-              <button className="text-sm text-gray-700 hover:text-gray-900">
-                Edit
-              </button>
-            </td>
-          </tr>
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm text-gray-900">06 Apr 2026</td>
-            <td className="py-4 text-sm font-mono text-gray-600">INV-0042</td>
-            <td className="py-4 text-sm text-gray-900">
-              Pendapatan Investasi - Dividen Saham
-            </td>
-            <td className="py-4 text-sm text-gray-600">Investasi</td>
-            <td className="py-4 text-center">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
-                <CheckCircle className="w-3 h-3" />
-                Valid
-              </span>
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 5.250.000
-            </td>
-            <td className="py-4 text-center">
-              <button className="text-sm text-gray-700 hover:text-gray-900">
-                Edit
-              </button>
-            </td>
-          </tr>
+          {transactions.map((t) => (
+            <tr key={t.id} className="hover:bg-gray-50">
+              <td className="py-4 text-sm text-gray-900">
+                {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+              </td>
+              <td className="py-4 text-sm font-mono text-gray-600">INV-{String(t.id).padStart(4, "0")}</td>
+              <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
+              <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
+              <td className="py-4 text-center">
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${t.status === "valid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
+                  {t.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                  {t.status === "valid" ? "Valid" : "Pending"}
+                </span>
+              </td>
+              <td className="py-4 text-sm text-gray-900 text-right font-mono">
+                Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
+              </td>
+              <td className="py-4 text-center">
+                <button className="text-sm text-gray-700 hover:text-gray-900">Edit</button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
-      <div className="mt-6 flex items-center justify-between">
-        <p className="text-sm text-gray-500">Menampilkan 4 dari 127 transaksi</p>
-        <div className="flex items-center gap-2">
-          <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">
-            Previous
-          </button>
-          <button className="px-3 py-1 bg-gray-900 text-white rounded text-sm">
-            1
-          </button>
-          <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">
-            2
-          </button>
-          <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">
-            3
-          </button>
-          <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">
-            Next
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
 
-function PengeluaranContent() {
+function PengeluaranContent({ transactions, isLoading }: Props) {
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (transactions.length === 0) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        Belum ada data transaksi pengeluaran
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Tanggal
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              No. Voucher
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Deskripsi
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Kategori
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Status
-            </th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Nominal
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Aksi
-            </th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">No. Voucher</th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Deskripsi</th>
+            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
+            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal</th>
+            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-200">
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm text-gray-900">08 Apr 2026</td>
-            <td className="py-4 text-sm font-mono text-gray-600">VCH-0156</td>
-            <td className="py-4 text-sm text-gray-900">Pembayaran Gaji Karyawan</td>
-            <td className="py-4 text-sm text-gray-600">Gaji</td>
-            <td className="py-4 text-center">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
-                <CheckCircle className="w-3 h-3" />
-                Valid
-              </span>
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 28.000.000
-            </td>
-            <td className="py-4 text-center">
-              <button className="text-sm text-gray-700 hover:text-gray-900">
-                Edit
-              </button>
-            </td>
-          </tr>
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm text-gray-900">07 Apr 2026</td>
-            <td className="py-4 text-sm font-mono text-gray-600">VCH-0155</td>
-            <td className="py-4 text-sm text-gray-900">
-              Biaya Marketing Digital - Meta Ads
-            </td>
-            <td className="py-4 text-sm text-gray-600">Marketing</td>
-            <td className="py-4 text-center">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-50 text-yellow-700 rounded text-xs">
-                <Clock className="w-3 h-3" />
-                Pending
-              </span>
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 5.750.000
-            </td>
-            <td className="py-4 text-center">
-              <button className="text-sm text-gray-700 hover:text-gray-900">
-                Edit
-              </button>
-            </td>
-          </tr>
-          <tr className="hover:bg-gray-50">
-            <td className="py-4 text-sm text-gray-900">05 Apr 2026</td>
-            <td className="py-4 text-sm font-mono text-gray-600">VCH-0154</td>
-            <td className="py-4 text-sm text-gray-900">
-              Pembelian Supplies Kantor
-            </td>
-            <td className="py-4 text-sm text-gray-600">Operasional</td>
-            <td className="py-4 text-center">
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 rounded text-xs">
-                <CheckCircle className="w-3 h-3" />
-                Valid
-              </span>
-            </td>
-            <td className="py-4 text-sm text-gray-900 text-right font-mono">
-              Rp 3.250.000
-            </td>
-            <td className="py-4 text-center">
-              <button className="text-sm text-gray-700 hover:text-gray-900">
-                Edit
-              </button>
-            </td>
-          </tr>
+          {transactions.map((t) => (
+            <tr key={t.id} className="hover:bg-gray-50">
+              <td className="py-4 text-sm text-gray-900">
+                {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+              </td>
+              <td className="py-4 text-sm font-mono text-gray-600">VCH-{String(t.id).padStart(4, "0")}</td>
+              <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
+              <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
+              <td className="py-4 text-center">
+                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${t.status === "valid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
+                  {t.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                  {t.status === "valid" ? "Valid" : "Pending"}
+                </span>
+              </td>
+              <td className="py-4 text-sm text-gray-900 text-right font-mono">
+                Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
+              </td>
+              <td className="py-4 text-center">
+                <button className="text-sm text-gray-700 hover:text-gray-900">Edit</button>
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

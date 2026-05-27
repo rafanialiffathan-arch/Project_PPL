@@ -49,6 +49,38 @@ router.post('/', async (req: AuthRequest, res) => {
   }
 });
 
+// PUT /api/transaksi/:id — update transaksi
+router.put('/:id', async (req: AuthRequest, res) => {
+  const { keterangan, jumlah, tipe, kategori, status, tanggal } = req.body;
+
+  if (!keterangan || !jumlah || !tipe || !tanggal) {
+    res.status(400).json({ message: 'Field wajib: keterangan, jumlah, tipe, tanggal' });
+    return;
+  }
+
+  try {
+    const [result] = await pool.query(
+      `UPDATE transaksi 
+       SET keterangan = ?, jumlah = ?, tipe = ?, kategori = ?, status = ?, tanggal = ?
+       WHERE id = ? AND user_id = ?`,
+      [keterangan, jumlah, tipe, kategori || 'umum', status || 'pending', tanggal, 
+       req.params.id, req.user!.id]
+    ) as any;
+
+    if (result.affectedRows === 0) {
+      res.status(404).json({ message: 'Transaksi tidak ditemukan' });
+      return;
+    }
+
+    res.json({
+      status: 'success',
+      data: { id: req.params.id, keterangan, jumlah, tipe, kategori, status, tanggal }
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Gagal update transaksi', error: err });
+  }
+});
+
 // DELETE /api/transaksi/:id
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {

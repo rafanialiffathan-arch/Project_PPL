@@ -1,22 +1,68 @@
-import { X } from "lucide-react";
-import { useState } from "react";
+import { X, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { apiFetch } from "../../lib/api";
 
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   type: "pemasukan" | "pengeluaran" | "kas" | "aset" | "inventaris";
+  onSuccess: () => void; // Callback untuk refresh table
+  editData?: {
+    id: number;
+    keterangan: string;
+    jumlah: number;
+    tipe: string;
+    kategori: string;
+    status: string;
+    tanggal: string;
+  } | null;
 }
 
-export function TransactionModal({ isOpen, onClose, type }: TransactionModalProps) {
+export function TransactionModal({ 
+  isOpen, 
+  onClose, 
+  type, 
+  onSuccess,
+  editData 
+}: TransactionModalProps) {
+  const [tanggal, setTanggal] = useState("");
   const [description, setDescription] = useState("");
   const [suggestedCategory, setSuggestedCategory] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
+  const [status, setStatus] = useState("pending");
+  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{
+    tanggal?: string;
     description?: string;
     amount?: string;
     category?: string;
   }>({});
+
+  // Set default tanggal to today
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setTanggal(today);
+  }, [isOpen]);
+
+  // Fill form when editing
+  useEffect(() => {
+    if (editData) {
+      setTanggal(editData.tanggal ?? "");
+      setDescription(editData.keterangan ?? "");
+      setAmount(String(editData.jumlah) ?? "");
+      setCategory(editData.kategori ?? "");
+      setStatus(editData.status ?? "pending");
+    } else {
+      // Reset form when adding new
+      const today = new Date().toISOString().split('T')[0];
+      setTanggal(today);
+      setDescription("");
+      setAmount("");
+      setCategory("");
+      setStatus("pending");
+    }
+  }, [editData, isOpen]);
 
   if (!isOpen) return null;
 
@@ -78,10 +124,13 @@ export function TransactionModal({ isOpen, onClose, type }: TransactionModalProp
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const newErrors: typeof errors = {};
 
     // Validation
+    if (!tanggal) {
+      newErrors.tanggal = "Tanggal wajib diisi";
+    }
     if (!description.trim()) {
       newErrors.description = "Deskripsi wajib diisi";
     }
@@ -99,14 +148,48 @@ export function TransactionModal({ isOpen, onClose, type }: TransactionModalProp
       return;
     }
 
-    // Success - close modal
-    alert("Transaksi berhasil ditambahkan! (Simulasi)");
-    setDescription("");
-    setAmount("");
-    setCategory("");
-    setSuggestedCategory("");
-    setErrors({});
-    onClose();
+    setIsLoading(true);
+
+    try {
+      const payload = {
+        tanggal,
+        keterangan: description,
+        jumlah: Number(amount.replace(/\D/g, "")),
+        tipe: type,
+        kategori: category,
+        status,
+      };
+
+      const endpoint = editData 
+        ? `/transaksi/${editData.id}` 
+        : '/transaksi';
+      const method = editData ? 'PUT' : 'POST';
+
+      const res = await apiFetch(endpoint, {
+        method,
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Gagal menyimpan transaksi!");
+        return;
+      }
+
+      // Success
+      setDescription("");
+      setAmount("");
+      setCategory("");
+      setSuggestedCategory("");
+      setErrors({});
+      onClose();
+      onSuccess(); // Refresh table
+    } catch {
+      alert("Koneksi ke server gagal. Pastikan backend menyala.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -133,8 +216,9 @@ export function TransactionModal({ isOpen, onClose, type }: TransactionModalProp
               </label>
               <input
                 type="date"
+                value={tanggal}
+                onChange={(e) => setTanggal(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
-                defaultValue="2026-04-09"
               />
             </div>
 
@@ -305,16 +389,25 @@ export function TransactionModal({ isOpen, onClose, type }: TransactionModalProp
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              disabled={isLoading}
+              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
             >
               Batal
             </button>
             <button
               type="button"
-              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+              disabled={isLoading}
               onClick={handleSubmit}
+              className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Simpan Transaksi
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Menyimpan...</span>
+                </>
+              ) : (
+                <span>{editData ? 'Update Transaksi' : 'Simpan Transaksi'}</span>
+              )}
             </button>
           </div>
         </form>
