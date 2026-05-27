@@ -37,6 +37,25 @@ INSERT INTO inventaris (nama_barang, kategori, jumlah, satuan, harga_satuan, kon
 ('Kertas HVS A4 70gr', 'perlengkapan', 100, 'box', 45000, 'baik', 'tersedia');
 
 -- ----------------------------
+-- Table: rekonsiliasi_bank
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS rekonsiliasi_bank (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  nama_bank VARCHAR(100) NOT NULL,
+  nomor_rekening VARCHAR(50) NOT NULL,
+  saldo_buku DECIMAL(15, 2) NOT NULL,
+  saldo_bank DECIMAL(15, 2) NOT NULL,
+  selisih DECIMAL(15, 2) GENERATED ALWAYS AS (saldo_bank - saldo_buku) STORED,
+  tanggal_rekonsiliasi DATE NOT NULL,
+  status ENUM('sesuai', 'selisih', 'pending') DEFAULT 'pending',
+  catatan TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ----------------------------
 -- Verify data
 -- ----------------------------
 -- SELECT * FROM inventaris;

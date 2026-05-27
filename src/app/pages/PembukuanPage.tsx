@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar, Trash2, Pencil } from "lucide-react";
+import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar, Trash2, Pencil, RefreshCw } from "lucide-react";
 import { TransactionModal } from "../components/TransactionModal.tsx";
 import { AsetModal } from "../components/AsetModal.tsx";
 import { InventarisModal } from "../components/InventarisModal.tsx";
+import { RekonsiliasiModal } from "../components/RekonsiliasiModal.tsx";
 import { apiFetch } from "../../lib/api";
 
 type TabType = "pemasukan" | "pengeluaran" | "kas" | "aset" | "inventaris" | "rekonsiliasi";
@@ -165,6 +166,9 @@ export function PembukuanPage() {
       // Buka InventarisModal untuk tab inventaris
       setSelectedInventaris(null);
       setIsInventarisModalOpen(true);
+    } else if (activeTab === "rekonsiliasi") {
+      // Buka RekonsiliasiModal untuk tab rekonsiliasi bank via RekonsiliasiContent
+      // Trigger the modal via a different mechanism - we'll add this
     } else {
       // Buka TransactionModal untuk tab lainnya
       setSelectedTransaction(null);
@@ -1005,37 +1009,211 @@ function InventarisContent({ inventarisList, isLoading, onEdit, onDelete }: Inve
   );
 }
 
-function RekonsiliasiContent() {
+type RekonsiliasiProps = {
+  onEdit?: (rekonsiliasi: any) => void;
+  onDelete?: (rekonsiliasi: any) => void;
+};
+
+function RekonsiliasiContent({ onEdit, onDelete }: RekonsiliasiProps) {
+  const [rekonsiliasiList, setRekonsiliasiList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedRekonsiliasi, setSelectedRekonsiliasi] = useState<any | null>(null);
+
+  const fetchRekonsiliasi = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch("/rekonsiliasi");
+      if (res.ok) {
+        const data = await res.json();
+        setRekonsiliasiList(data);
+      }
+    } catch (err) {
+      console.error("Gagal fetch rekonsiliasi:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRekonsiliasi();
+  }, []);
+
+  const handleEditRekonsiliasi = (item: any) => {
+    setSelectedRekonsiliasi(item);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteRekonsiliasi = async (item: any) => {
+    const confirmed = window.confirm(`Yakin ingin menghapus rekonsiliasi "${item.nama_bank}"?\n\nTindakan ini tidak dapat dibatalkan.`);
+    if (!confirmed) return;
+
+    try {
+      const res = await apiFetch(`/rekonsiliasi/${item.id}`, {
+        method: "DELETE",
+      });
+
+      if (res.ok) {
+        alert("Rekonsiliasi berhasil dihapus!");
+        fetchRekonsiliasi();
+      } else {
+        const data = await res.json();
+        alert(data.message || "Gagal menghapus rekonsiliasi!");
+      }
+    } catch {
+      alert("Koneksi ke server gagal. Pastikan backend menyala.");
+    }
+  };
+
+  const formatCurrency = (num: number) =>
+    new Intl.NumberFormat("id-ID").format(num);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  // Calculate summary
+  const totalSelisih = rekonsiliasiList.reduce((sum, item) => {
+    return sum + (Number(item.saldo_bank) - Number(item.saldo_buku));
+  }, 0);
+
+  const sesuaiCount = rekonsiliasiList.filter((item) => item.status === "sesuai").length;
+  const selisihCount = rekonsiliasiList.filter((item) => item.status === "selisih").length;
+
   return (
     <div className="space-y-6">
-      <div className="bg-gray-50 p-6 rounded-lg">
-        <h4 className="text-sm font-medium text-gray-900 mb-4">
-          Rekonsiliasi Bank - April 2026
-        </h4>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <div className="text-sm text-gray-500 mb-1">Saldo per Buku</div>
-            <div className="font-mono text-gray-900">Rp 450.000.000</div>
+          {/* Summary & Add Button */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <div className="text-sm text-gray-500 mb-1">Total Rekonsiliasi</div>
+                <div className="font-mono text-xl text-gray-900">{rekonsiliasiList.length}</div>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <div className="text-sm text-green-700 mb-1">Sesuai</div>
+                <div className="font-mono text-xl text-green-700">{sesuaiCount}</div>
+              </div>
+              <div className="p-4 bg-red-50 rounded-lg">
+                <div className="text-sm text-red-700 mb-1">Ada Selisih</div>
+                <div className="font-mono text-xl text-red-700">{selisihCount}</div>
+              </div>
+              <div className={`p-4 rounded-lg ${totalSelisih === 0 ? "bg-green-50" : "bg-yellow-50"}`}>
+                <div className="text-sm text-gray-600 mb-1">Total Selisih</div>
+                <div className={`font-mono text-xl ${totalSelisih === 0 ? "text-green-700" : "text-yellow-700"}`}>
+                  Rp {formatCurrency(Math.abs(totalSelisih))}
+                  {totalSelisih === 0 ? " ✅" : ""}
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => { setSelectedRekonsiliasi(null); setIsModalOpen(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Rekonsiliasi
+            </button>
           </div>
-          <div>
-            <div className="text-sm text-gray-500 mb-1">Saldo per Bank</div>
-            <div className="font-mono text-gray-900">Rp 452.300.000</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-500 mb-1">Selisih</div>
-            <div className="font-mono text-red-600">Rp 2.300.000</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-500 mb-1">Status</div>
-            <span className="px-2 py-1 text-xs bg-yellow-50 text-yellow-700 rounded">
-              Perlu Rekonsiliasi
-            </span>
-          </div>
+
+      {/* Table */}
+      {rekonsiliasiList.length === 0 ? (
+        <div className="text-center py-12 text-gray-500">
+          Belum ada data rekonsiliasi bank. Klik "Tambah" untuk menambah rekonsiliasi.
         </div>
-      </div>
-      <div className="text-sm text-gray-500">
-        Detail perbedaan dan adjustment akan ditampilkan di sini...
-      </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-gray-200">
+                <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Nama Bank
+                </th>
+                <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  No. Rekening
+                </th>
+                <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Saldo per Buku
+                </th>
+                <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Saldo per Bank
+                </th>
+                <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
+                  Selisih
+                </th>
+                <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  Tanggal
+                </th>
+                <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
+                  Status
+                </th>
+                <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
+                  Aksi
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {rekonsiliasiList.map((item) => {
+                const selisih = Number(item.saldo_bank) - Number(item.saldo_buku);
+                return (
+                  <tr key={item.id} className="hover:bg-gray-50">
+                    <td className="py-4 text-sm text-gray-900">{item.nama_bank}</td>
+                    <td className="py-4 text-sm font-mono text-gray-600">{item.nomor_rekening}</td>
+                    <td className="py-4 text-sm text-gray-900 text-right font-mono">
+                      Rp {formatCurrency(Number(item.saldo_buku))}
+                    </td>
+                    <td className="py-4 text-sm text-gray-900 text-right font-mono">
+                      Rp {formatCurrency(Number(item.saldo_bank))}
+                    </td>
+                    <td className={`py-4 text-sm text-right font-mono ${selisih === 0 ? "text-green-700" : "text-red-600"}`}>
+                      {selisih === 0 ? "-" : (selisih > 0 ? "+" : "-")} Rp {formatCurrency(Math.abs(selisih))}
+                    </td>
+                    <td className="py-4 text-sm text-gray-600">
+                      {new Date(item.tanggal_rekonsiliasi).toLocaleDateString("id-ID", { 
+                        day: "2-digit", month: "short", year: "numeric" 
+                      })}
+                    </td>
+                    <td className="py-4 text-center">
+                      <span className={`inline-flex px-2 py-1 rounded text-xs ${
+                        item.status === "sesuai"
+                          ? "bg-green-50 text-green-700"
+                          : item.status === "selisih"
+                          ? "bg-red-50 text-red-700"
+                          : "bg-yellow-50 text-yellow-700"
+                      }`}>
+                        {item.status === "sesuai" ? "Sesuai" : item.status === "selisih" ? "Selisih" : "Pending"}
+                      </span>
+                    </td>
+                    <td className="py-4 text-center">
+                      <button onClick={() => handleEditRekonsiliasi(item)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleDeleteRekonsiliasi(item)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Rekonsiliasi Modal */}
+      <RekonsiliasiModal
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setSelectedRekonsiliasi(null); }}
+        editData={selectedRekonsiliasi}
+        onSuccess={() => {
+          console.log("Rekonsiliasi berhasil disimpan, refresh data...");
+          setIsModalOpen(false);
+          setSelectedRekonsiliasi(null);
+          fetchRekonsiliasi();
+        }}
+      />
     </div>
   );
 }
