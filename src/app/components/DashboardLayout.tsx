@@ -9,7 +9,8 @@ import {
   Search,
   Menu,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { removeToken, removeUser, getUser } from "../../lib/api";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -23,10 +24,24 @@ export function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [user, setUser] = useState<{ id: number; nama: string; role: string } | null>(null);
+
+  // Load user from localStorage on mount
+  useEffect(() => {
+    const savedUser = getUser();
+    if (savedUser) {
+      setUser(savedUser);
+    }
+  }, []);
 
   const handleLogout = () => {
-    // Mock logout - redirect to login
-    navigate("/login");
+    if (window.confirm("Apakah Anda yakin ingin logout?")) {
+      removeToken();
+      removeUser();
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
@@ -76,7 +91,7 @@ export function DashboardLayout() {
           })}
         </nav>
 
-        {/* Logout Button */}
+        {/* Logout Button - SATU-SATUNYA TOMBOL LOGOUT */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
           <button
             onClick={handleLogout}
@@ -107,11 +122,11 @@ export function DashboardLayout() {
             </div>
           </div>
 
-          {/* User Info */}
+          {/* User Info - DARI LOCALSTORAGE, BUKAN HARDCODE */}
           <div className="flex items-center gap-3">
             <div className="text-right hidden sm:block">
-              <div className="text-sm font-medium">Admin User</div>
-              <div className="text-xs text-gray-500">Administrator</div>
+              <div className="text-sm font-medium">{user?.nama || "Pengguna"}</div>
+              <div className="text-xs text-gray-500 capitalize">{user?.role || "Pengguna"}</div>
             </div>
             <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
               <User className="w-6 h-6 text-gray-600" />

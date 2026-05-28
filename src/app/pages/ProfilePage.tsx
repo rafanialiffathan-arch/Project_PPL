@@ -1,57 +1,33 @@
-import { User, Mail, Building, Shield, Save, Key, LogOut } from "lucide-react";
-import { useNavigate } from "react-router";
-import { removeToken } from "../../lib/api";
+import { User, Mail, Building, Shield, Key } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getUser } from "../../lib/api";
 
 export function ProfilePage() {
-  const navigate = useNavigate();
+  const [user, setUser] = useState<{ id: number; nama: string; role: string } | null>(null);
+
+  // Load user from localStorage on mount
+  useEffect(() => {
+    const savedUser = getUser();
+    if (savedUser) {
+      setUser(savedUser);
+    }
+  }, []);
+
+  // Check if user is logged in
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+          <User className="w-8 h-8 text-gray-400" />
+        </div>
+        <h3 className="text-gray-900 font-medium mb-2">Tidak ada data pengguna</h3>
+        <p className="text-sm text-gray-500">Silakan login terlebih dahulu.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Annotation */}
-      <div className="p-6 bg-white border-l-4 border-gray-900 rounded-lg shadow-sm">
-        <h4 className="text-xs font-bold text-gray-900 mb-3 uppercase tracking-wide">
-          📌 HALAMAN 5 — PROFILE / SETTINGS
-        </h4>
-        <div className="space-y-3 text-xs text-gray-700 leading-relaxed">
-          <div>
-            <span className="font-semibold">FUNGSI PROFILE:</span>
-            <ul className="ml-4 mt-1 space-y-1 list-disc">
-              <li><strong>Informasi Pribadi:</strong> Nama lengkap, username, email, nomor telepon, alamat</li>
-              <li><strong>Foto Profile:</strong> Upload/change avatar user (max 2MB, format JPG/PNG)</li>
-              <li><strong>Informasi Perusahaan:</strong> Nama perusahaan, alamat kantor untuk header laporan</li>
-              <li><strong>Edit Profile:</strong> Update data dengan validasi real-time & konfirmasi</li>
-            </ul>
-          </div>
-          <div>
-            <span className="font-semibold">KEAMANAN AKUN:</span>
-            <ul className="ml-4 mt-1 space-y-1 list-disc">
-              <li><strong>Change Password:</strong> Memerlukan password lama + konfirmasi password baru</li>
-              <li><strong>Password Requirements:</strong> Min. 8 karakter, kombinasi huruf besar/kecil + angka</li>
-              <li><strong>Two-Factor Auth (2FA):</strong> Enable/disable untuk extra security layer</li>
-              <li><strong>Session Management:</strong> Logout dari semua device secara remote</li>
-            </ul>
-          </div>
-          <div>
-            <span className="font-semibold">ROLE & PERMISSION:</span>
-            <ul className="ml-4 mt-1 space-y-1 list-disc">
-              <li><strong>Current Role:</strong> Administrator atau Pimpinan (read-only untuk analisis)</li>
-              <li><strong>Access Control:</strong> Daftar permission yang dimiliki user saat ini</li>
-              <li><strong>Audit Trail:</strong> Log aktivitas user (login, update data, generate laporan)</li>
-            </ul>
-          </div>
-          <div>
-            <span className="font-semibold">AKTIVITAS TERAKHIR:</span>
-            <ul className="ml-4 mt-1 space-y-1 list-disc">
-              <li>History login dengan timestamp, IP address, dan device info</li>
-              <li>Track perubahan data penting untuk compliance & security audit</li>
-            </ul>
-          </div>
-          <div>
-            <span className="font-semibold">LOGOUT:</span> Clear session, redirect ke Login page dengan aman
-          </div>
-        </div>
-      </div>
-
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -84,19 +60,20 @@ export function ProfilePage() {
           {/* Profile Info Card */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-200">
-              <div className="w-24 h-24 bg-gray-300 rounded-full flex items-center justify-center">
-                <User className="w-12 h-12 text-gray-600" />
+              <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center">
+                <User className="w-12 h-12 text-gray-500" />
               </div>
               <div className="flex-1">
-                <h3 className="text-gray-900 mb-1">Admin User</h3>
-                <p className="text-sm text-gray-500 mb-3">Administrator</p>
-                <button className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+                <h3 className="text-gray-900 mb-1">{user.nama || 'User'}</h3>
+                <p className="text-sm text-gray-500 capitalize">{user.role || 'Pengguna'}</p>
+                <button className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 mt-2">
                   Ubah Foto Profile
                 </button>
               </div>
             </div>
 
-            <form className="space-y-4">
+            {/* Form Info */}
+            <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -104,8 +81,9 @@ export function ProfilePage() {
                   </label>
                   <input
                     type="text"
-                    defaultValue="Admin User"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    value={user.nama || ''}
+                    readOnly
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-900"
                   />
                 </div>
                 <div>
@@ -114,8 +92,8 @@ export function ProfilePage() {
                   </label>
                   <input
                     type="text"
-                    defaultValue="adminuser"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                    placeholder="Belum tersedia"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                   />
                 </div>
               </div>
@@ -127,8 +105,8 @@ export function ProfilePage() {
                 </label>
                 <input
                   type="email"
-                  defaultValue="admin@accountech.com"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  placeholder="Belum tersedia"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                 />
               </div>
 
@@ -138,8 +116,8 @@ export function ProfilePage() {
                 </label>
                 <input
                   type="tel"
-                  defaultValue="+62 812 3456 7890"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  placeholder="Belum tersedia"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                 />
               </div>
 
@@ -150,8 +128,8 @@ export function ProfilePage() {
                 </label>
                 <input
                   type="text"
-                  defaultValue="PT AccounTech Indonesia"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  placeholder="Belum tersedia"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                 />
               </div>
 
@@ -161,70 +139,28 @@ export function ProfilePage() {
                 </label>
                 <textarea
                   rows={3}
-                  defaultValue="Jl. Sudirman No. 123, Jakarta Selatan, DKI Jakarta"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
+                  placeholder="Belum tersedia"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
                 />
               </div>
+            </div>
 
-              <div className="flex justify-end gap-3 pt-4">
-                <button
-                  type="button"
-                  className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-                >
-                  <Save className="w-4 h-4" />
-                  Simpan Perubahan
-                </button>
-              </div>
-            </form>
+            {/* Info: Update profile not available */}
+            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                ⚠️ Fitur update profil belum tersedia. Hubungi administrator untuk mengubah data akun.
+              </p>
+            </div>
           </div>
 
           {/* Security Settings */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="text-gray-900 mb-4">Ubah Password</h3>
-            <form className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password Lama
-                </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password Baru
-                </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Konfirmasi Password Baru
-                </label>
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400"
-                />
-              </div>
-              <button
-                type="submit"
-                className="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-              >
-                Update Password
-              </button>
-            </form>
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <p className="text-sm text-gray-600">
+                Fitur ubah password belum tersedia. Hubungi administrator untuk mengubah password.
+              </p>
+            </div>
           </div>
 
           {/* Role & Permissions */}
@@ -242,8 +178,8 @@ export function ProfilePage() {
                     Akses penuh ke semua fitur sistem
                   </div>
                 </div>
-                <div className="px-3 py-1 bg-gray-900 text-white rounded text-sm">
-                  Administrator
+                <div className="px-3 py-1 bg-gray-900 text-white rounded text-sm capitalize">
+                  {user.role || 'Pengguna'}
                 </div>
               </div>
 
@@ -281,57 +217,26 @@ export function ProfilePage() {
             </div>
           </div>
 
-          {/* Activity Log */}
+          {/* Activity Log - Empty State */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h3 className="text-gray-900 mb-4">
               Aktivitas Terakhir
             </h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div>
-                  <div className="text-gray-900">Login ke sistem</div>
-                  <div className="text-xs text-gray-500">09 Apr 2026, 08:30 WIB</div>
-                </div>
-                <div className="text-xs text-gray-500">IP: 192.168.1.1</div>
+            <div className="p-8 text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <span className="text-2xl">📋</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <div>
-                  <div className="text-gray-900">Update laporan keuangan</div>
-                  <div className="text-xs text-gray-500">08 Apr 2026, 16:45 WIB</div>
-                </div>
-                <div className="text-xs text-gray-500">IP: 192.168.1.1</div>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <div>
-                  <div className="text-gray-900">Input transaksi baru</div>
-                  <div className="text-xs text-gray-500">08 Apr 2026, 14:20 WIB</div>
-                </div>
-                <div className="text-xs text-gray-500">IP: 192.168.1.1</div>
-              </div>
+              <p className="text-sm text-gray-500">
+                Riwayat aktivitas akan ditampilkan di sini setelah data tersedia.
+              </p>
             </div>
           </div>
 
-          {/* Logout Button */}
-          <div className="bg-white rounded-lg border border-red-200 p-6">
-            <h3 className="text-gray-900 mb-2">Keluar dari Akun</h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Anda akan keluar dari sistem dan diarahkan ke halaman login
+          {/* NOTE: Logout tersedia di sidebar */}
+          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+            <p className="text-sm text-gray-600 text-center">
+              💡 Untuk keluar dari akun, gunakan tombol <strong>"Keluar"</strong> di sidebar kiri.
             </p>
-            <button
-              className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              onClick={() => {
-                if (window.confirm("Apakah Anda yakin ingin logout?")) {
-                  // Clear all auth data from localStorage
-                  localStorage.removeItem("token");
-                  localStorage.removeItem("user");
-                  // Redirect to login page
-                  navigate("/login", { replace: true });
-                }
-              }}
-            >
-              <LogOut className="w-4 h-4" />
-              Logout dari Sistem
-            </button>
           </div>
         </div>
       </div>

@@ -1,6 +1,6 @@
 const BASE_URL = 'http://localhost:5000/api';
 
-// Simpan token ke localStorage
+// Token management
 export const saveToken = (token: string) =>
   localStorage.setItem('token', token);
 
@@ -9,6 +9,18 @@ export const getToken = () =>
 
 export const removeToken = () =>
   localStorage.removeItem('token');
+
+// User management
+export const saveUser = (user: { id: number; nama: string; role: string }) =>
+  localStorage.setItem('user', JSON.stringify(user));
+
+export const getUser = (): { id: number; nama: string; role: string } | null => {
+  const data = localStorage.getItem('user');
+  return data ? JSON.parse(data) : null;
+};
+
+export const removeUser = () =>
+  localStorage.removeItem('user');
 
 // Helper fetch dengan Authorization header otomatis
 export async function apiFetch(

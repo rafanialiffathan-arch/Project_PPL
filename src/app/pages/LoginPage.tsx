@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router";
 import { LogIn } from "lucide-react";
-import { saveToken, apiFetch } from "../../lib/api";
+import { saveToken, saveUser, apiFetch } from "../../lib/api";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -25,7 +25,14 @@ export function LoginPage() {
         return;
       }
 
+      // Save token
       saveToken(data.token);
+      
+      // Save user data from login response
+      if (data.user) {
+        saveUser(data.user);
+      }
+      
       navigate("/");
     } catch {
       alert("Koneksi ke server gagal. Pastikan backend menyala.");
