@@ -1,3 +1,23 @@
+// Helper: format YYYY-MM-DD string ke "28 Mei 2026" (id-ID) without Date object
+// Avoids timezone shift from new Date(tanggal).toLocaleDateString()
+const formatDateDisplay = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return "-";
+  // dateStr should be YYYY-MM-DD from DATE_FORMAT in SQL
+  const parts = dateStr.split("-");
+  if (parts.length !== 3) return dateStr; // fallback to raw if unexpected format
+  
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  const day = parseInt(parts[2], 10);
+  
+  const monthNames = [
+    "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+    "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+  ];
+  
+  return `${day} ${monthNames[month - 1]} ${year}`;
+};
+
 import { useState, useEffect } from "react";
 import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar, Trash2, Pencil, RefreshCw } from "lucide-react";
 import { TransactionModal } from "../components/TransactionModal.tsx";
@@ -668,7 +688,7 @@ function PemasukanContent({ transactions, isLoading, onEdit, onDelete }: Props) 
             {transactions.map((t) => (
               <tr key={t.id} className="hover:bg-emerald-50/50 transition-colors group">
                 <td className="px-4 py-4 text-sm text-gray-900 font-medium">
-                  {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                  {formatDateDisplay(t.tanggal)}
                 </td>
                 <td className="px-4 py-4 text-sm font-mono text-emerald-700 bg-emerald-50/50">
                   {t.nomor_invoice || `INV-${String(t.id).padStart(4, "0")}`}
@@ -760,7 +780,7 @@ function PengeluaranContent({ transactions, isLoading, onEdit, onDelete }: Props
             {transactions.map((t) => (
               <tr key={t.id} className="hover:bg-red-50/50 transition-colors group">
                 <td className="px-4 py-4 text-sm text-gray-900 font-medium">
-                  {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                  {formatDateDisplay(t.tanggal)}
                 </td>
                 <td className="px-4 py-4 text-sm font-mono text-red-700 bg-red-50/50">
                   {t.nomor_invoice || `VCH-${String(t.id).padStart(4, "0")}`}
@@ -934,7 +954,7 @@ function KasContent({ transactions, isLoading }: KasProps) {
               {transactions.map((t) => (
                 <tr key={t.id} className="hover:bg-gray-50">
                   <td className="py-4 text-sm text-gray-900">
-                    {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                    {formatDateDisplay(t.tanggal)}
                   </td>
                   <td className="py-4 text-sm font-mono text-gray-600">
                     {t.nomor_invoice || `TRX-${String(t.id).padStart(4, "0")}`}

@@ -149,7 +149,10 @@ router.use(authMiddleware as any);
 router.get('/', async (req: AuthRequest, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT * FROM transaksi
+      `SELECT id, user_id, keterangan, jumlah, tipe, kategori, status,
+              DATE_FORMAT(tanggal, '%Y-%m-%d') AS tanggal,
+              nomor_invoice, bukti_transaksi, created_at, updated_at
+       FROM transaksi
        WHERE user_id = ?
        ORDER BY tanggal DESC, created_at DESC`,
       [req.user!.id]

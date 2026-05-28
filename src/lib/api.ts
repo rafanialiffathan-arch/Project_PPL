@@ -16,10 +16,13 @@ export async function apiFetch(
   options: RequestInit = {}
 ) {
   const token = getToken();
+  const isFormData = options.body instanceof FormData;
+  
   return fetch(`${BASE_URL}${endpoint}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      // Jangan set Content-Type untuk FormData — browser auto-set dengan boundary
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },

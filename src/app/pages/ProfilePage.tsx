@@ -1,5 +1,6 @@
 import { User, Mail, Building, Shield, Save, Key, LogOut } from "lucide-react";
 import { useNavigate } from "react-router";
+import { removeToken } from "../../lib/api";
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -320,7 +321,11 @@ export function ProfilePage() {
               className="flex items-center gap-2 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               onClick={() => {
                 if (window.confirm("Apakah Anda yakin ingin logout?")) {
-                  navigate("/login");
+                  // Clear all auth data from localStorage
+                  localStorage.removeItem("token");
+                  localStorage.removeItem("user");
+                  // Redirect to login page
+                  navigate("/login", { replace: true });
                 }
               }}
             >

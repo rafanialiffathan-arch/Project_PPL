@@ -531,7 +531,7 @@ export function DashboardPage() {
             <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
               <div className="text-xs text-gray-600 mb-1">Total Saldo</div>
               <div className="text-xl font-mono text-gray-900 mb-2">
-                Rp {formatRupiah(computedData.netCashFlow + computedData.totalPemasukan * 0.1)}
+                Rp {formatRupiah(computedData.netCashFlow)}
               </div>
               <div className="flex items-center gap-2 text-xs">
                 {computedData.netCashFlow >= 0 ? (

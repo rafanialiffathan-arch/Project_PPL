@@ -16,8 +16,54 @@ interface TransactionModalProps {
     status: string;
     tanggal: string;
     nomor_invoice?: string | null;
+    bukti_transaksi?: string | null;
   } | null;
 }
+
+// Helper: parse date string ke YYYY-MM-DD (timezone-safe)
+// Accepts: "2025-08-21" or "2025-08-21T00:00:00.000Z" or "2025-08-21T17:00:00.000Z"
+// Returns: "2025-08-21" (always, without Date object conversion)
+const parseDateForInput = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return "";
+  // If already YYYY-MM-DD format (no T), return as-is
+  if (!dateStr.includes("T")) return dateStr;
+  // Extract YYYY-MM-DD from ISO string by splitting on T
+  // This avoids timezone issues from new Date().toISOString()
+  return dateStr.split("T")[0];
+};
+
+// Helper: get today's date as YYYY-MM-DD in LOCAL timezone (not UTC)
+// Avoids timezone shift for users not in UTC+0
+const getLocalDateString = (): string => {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+// Helper: format number for display with thousand separators (id-ID locale)
+// Input: 4242000000 → Output: "4.242.000.000"
+// Input: 1000000 → Output: "1.000.000"
+const formatNumberDisplay = (num: number): string => {
+  if (isNaN(num) || num === null || num === undefined) return "";
+  return new Intl.NumberFormat("id-ID").format(Math.floor(num));
+};
+
+// Helper: parse display string to raw number
+// Input: "4.242.000.000" → Output: 4242000000
+// Input: "4242000000" → Output: 4242000000
+// Input: "4242000000.00" → Output: 4242000000 (strips .00)
+const parseAmountFromDisplay = (display: string): number => {
+  if (!display || !display.trim()) return 0;
+  // Remove all non-digits (dots, spaces, "Rp", etc.)
+  const cleanDigits = display.replace(/[^\d]/g, "");
+  if (!cleanDigits) return 0;
+  return parseInt(cleanDigits, 10);
+};
+
+// Max value for DECIMAL(15,2): 99,999,999,999,999.99
+const MAX_AMOUNT = 9999999999999;
 
 export function TransactionModal({ 
   isOpen, 
@@ -26,6 +72,7 @@ export function TransactionModal({
   onSuccess,
   editData 
 }: TransactionModalProps) {
+  const isEditMode = Boolean(editData);
   const [tanggal, setTanggal] = useState("");
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [description, setDescription] = useState("");
@@ -44,26 +91,26 @@ export function TransactionModal({
     category?: string;
   }>({});
 
-  // Set default tanggal to today
+  // Set default tanggal to today in local timezone
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    setTanggal(today);
-  }, [isOpen]);
+    if (!editData) {
+      setTanggal(getLocalDateString());
+    }
+  }, [isOpen, editData]);
 
   // Fill form when editing
   useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    
     if (editData) {
-      setTanggal(String(editData.tanggal ?? today));
-      setInvoiceNumber(String(editData.nomor_invoice ?? ""));
-      setDescription(String(editData.keterangan || ""));
-      setAmount(String(editData.jumlah || ""));
-      setCategory(String(editData.kategori || ""));
-      setStatus(String(editData.status || "pending"));
+      // parseDateForInput already handles both YYYY-MM-DD and ISO strings
+      setTanggal(parseDateForInput(editData.tanggal));
+      setInvoiceNumber(editData.nomor_invoice ?? "");
+      setDescription(editData.keterangan ?? "");
+      setAmount(formatNumberDisplay(editData.jumlah ?? 0));
+      setCategory(editData.kategori ?? "");
+      setStatus(editData.status ?? "pending");
     } else {
-      // Reset form when adding new
-      setTanggal(today);
+      // Reset form when adding new - use local timezone-safe date
+      setTanggal(getLocalDateString());
       setInvoiceNumber("");
       setDescription("");
       setAmount("");
@@ -74,13 +121,21 @@ export function TransactionModal({
 
   if (!isOpen) return null;
 
-  const titles = {
-    pemasukan: "Tambah Pemasukan",
-    pengeluaran: "Tambah Pengeluaran",
-    kas: "Tambah Transaksi Kas",
-    aset: "Tambah Aset Tetap",
-    inventaris: "Tambah Inventaris",
-  };
+  const titles = isEditMode
+    ? {
+        pemasukan: "Edit Pemasukan",
+        pengeluaran: "Edit Pengeluaran",
+        kas: "Edit Transaksi Kas",
+        aset: "Edit Aset Tetap",
+        inventaris: "Edit Inventaris",
+      }
+    : {
+        pemasukan: "Tambah Pemasukan",
+        pengeluaran: "Tambah Pengeluaran",
+        kas: "Tambah Transaksi Kas",
+        aset: "Tambah Aset Tetap",
+        inventaris: "Tambah Inventaris",
+      };
 
   // Automated auto-categorization
   const handleDescriptionChange = (value: string) => {
@@ -113,7 +168,13 @@ export function TransactionModal({
   };
 
   const handleAmountChange = (value: string) => {
-    setAmount(value);
+    // Parse the display value and re-format with thousand separators
+    const rawNumber = parseAmountFromDisplay(value);
+    if (rawNumber > 0) {
+      setAmount(formatNumberDisplay(rawNumber));
+    } else {
+      setAmount(value); // Allow typing initially, format on blur or next digit
+    }
     if (errors.amount) {
       setErrors(prev => {
         const { amount, ...rest } = prev;
@@ -192,10 +253,13 @@ export function TransactionModal({
     if (!description.trim()) {
       newErrors.description = "Deskripsi wajib diisi";
     }
+    const rawAmount = parseAmountFromDisplay(amount);
     if (!amount.trim()) {
       newErrors.amount = "Nominal wajib diisi";
-    } else if (isNaN(Number(amount.replace(/\D/g, "")))) {
-      newErrors.amount = "Nominal harus berupa angka";
+    } else if (rawAmount <= 0) {
+      newErrors.amount = "Nominal harus berupa angka positif";
+    } else if (rawAmount > MAX_AMOUNT) {
+      newErrors.amount = `Nominal terlalu besar (maks Rp ${formatNumberDisplay(MAX_AMOUNT)})`;
     }
     if (!category) {
       newErrors.category = "Kategori wajib dipilih";
@@ -214,7 +278,7 @@ export function TransactionModal({
       const formData = new FormData();
       formData.append('tanggal', tanggal);
       formData.append('keterangan', description);
-      formData.append('jumlah', String(Number(amount.replace(/\D/g, ""))));
+      formData.append('jumlah', String(rawAmount));
       formData.append('tipe', type);
       formData.append('kategori', category);
       formData.append('status', status);
@@ -230,11 +294,8 @@ export function TransactionModal({
         : '/transaksi/upload';
       const method = editData ? 'PUT' : 'POST';
 
-      const res = await fetch(`http://localhost:5000/api${endpoint}`, {
+      const res = await apiFetch(endpoint, {
         method,
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
         body: formData,
       });
 
@@ -443,10 +504,33 @@ export function TransactionModal({
             )}
           </div>
 
+          {/* Existing bukti_transaksi display */}
+          {isEditMode && editData?.bukti_transaksi && !selectedFile && (
+            <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">📎</span>
+                <div>
+                  <p className="text-sm text-green-800 font-medium">
+                    Bukti tersimpan: {editData.bukti_transaksi.split("/").pop()}
+                  </p>
+                  <p className="text-xs text-green-600">File lama tidak berubah kecuali upload baru</p>
+                </div>
+              </div>
+              <a
+                href={`http://localhost:5000${editData.bukti_transaksi}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                Lihat bukti
+              </a>
+            </div>
+          )}
+
           {/* Upload Bukti Transaksi */}
           <div>
             <label className="block text-sm text-gray-700 mb-2">
-              Upload Bukti Transaksi
+              {isEditMode ? "Upload Bukti Baru (Opsional)" : "Upload Bukti Transaksi"}
             </label>
             <input
               type="file"
