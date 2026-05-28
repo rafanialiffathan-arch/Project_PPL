@@ -282,145 +282,175 @@ export function PembukuanPage() {
         </div>
       </div>
 
-      {/* Page Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-gray-900 mb-2">Pembukuan</h1>
-          <p className="text-sm text-gray-500">
-            Catat dan kelola semua transaksi keuangan perusahaan
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-            <Download className="w-4 h-4" />
-            Export
-          </button>
-          <button
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-              activeTab === "kas" || activeTab === "rekonsiliasi"
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-gray-900 text-white hover:bg-gray-800"
-            }`}
-            onClick={handleAddData}
-            disabled={activeTab === "kas" || activeTab === "rekonsiliasi"}
-          >
-            <Plus className="w-4 h-4" />
-            Tambah Transaksi
-          </button>
+      {/* Page Header - REDESIGN */}
+      <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl p-6 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-gray-300 text-sm mb-1">
+              <span>Dashboard</span>
+              <span>/</span>
+              <span>Pembukuan</span>
+            </div>
+            <h1 className="text-2xl font-bold mb-1">📒 Pembukuan</h1>
+            <p className="text-gray-300 text-sm">
+              Catat dan kelola semua transaksi keuangan perusahaan
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-2 px-4 py-2.5 bg-white/10 backdrop-blur border border-white/20 rounded-lg hover:bg-white/20 transition-all">
+              <Download className="w-4 h-4" />
+              <span className="text-sm font-medium">Export</span>
+            </button>
+            <button
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+                activeTab === "kas" || activeTab === "rekonsiliasi"
+                  ? "bg-white/10 text-white/50 cursor-not-allowed border border-white/20"
+                  : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-lg shadow-emerald-500/30"
+              }`}
+              onClick={handleAddData}
+              disabled={activeTab === "kas" || activeTab === "rekonsiliasi"}
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm">Tambah Transaksi</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="border-b border-gray-200 flex overflow-x-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-4 text-sm whitespace-nowrap transition-colors ${
-                activeTab === tab.id
-                  ? "border-b-2 border-gray-900 text-gray-900 font-medium"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {/* Tabs Navigation - REDESIGN */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="flex overflow-x-auto scrollbar-hide">
+          {tabs.map((tab) => {
+            const icons: Record<string, string> = {
+              pemasukan: "💰",
+              pengeluaran: "💸",
+              kas: "🏦",
+              aset: "🏢",
+              inventaris: "📦",
+              rekonsiliasi: "📋",
+            };
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-6 py-4 text-sm whitespace-nowrap transition-all relative ${
+                  activeTab === tab.id
+                    ? "bg-gray-50 text-gray-900 font-semibold"
+                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <span className="mr-2">{icons[tab.id]}</span>
+                {tab.label}
+                {activeTab === tab.id && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-emerald-500 to-emerald-600" />
+                )}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Filters */}
-        <div className="p-4 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center gap-4 flex-wrap mb-4">
+        {/* Filters - REDESIGN */}
+        <div className="p-4 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+          <div className="flex items-center gap-3 flex-wrap mb-4">
             <button 
               onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
-              className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                showAdvancedFilter 
+                  ? "bg-gray-900 text-white" 
+                  : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+              }`}
             >
               <Filter className="w-4 h-4" />
-              {showAdvancedFilter ? "Hide" : "Show"} Advanced Filter
+              {showAdvancedFilter ? "Sembunyikan" : "Filter Lanjutan"}
             </button>
-            <select className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
+            <select className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
               <option>Semua Periode</option>
               <option>Hari Ini</option>
               <option>Minggu Ini</option>
               <option>Bulan Ini</option>
               <option>Custom Range</option>
             </select>
-            <select className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
+            <select className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
               <option>Semua Kategori</option>
               <option>Penjualan</option>
               <option>Jasa</option>
               <option>Investasi</option>
               <option>Lainnya</option>
             </select>
-            <select className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm">
+            <select className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
               <option>Semua Status</option>
               <option>✅ Valid</option>
               <option>⏳ Pending</option>
             </select>
             <div className="flex-1 min-w-[200px] relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Cari no. ref, deskripsi, nominal..."
-                className="w-full pl-10 pr-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="w-full pl-11 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-sm"
               />
             </div>
           </div>
 
-          {/* Advanced Filter Panel */}
+          {/* Advanced Filter Panel - REDESIGN */}
           {showAdvancedFilter && (
-            <div className="p-4 bg-white rounded-lg border border-gray-200">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">🔍 Advanced Filters</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Tanggal Mulai</label>
+            <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  🔍 Filter Lanjutan
+                </h4>
+                <button className="text-xs text-gray-500 hover:text-gray-700">Reset</button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-2">Tanggal Mulai</label>
                   <div className="relative">
                     <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input 
                       type="date" 
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       defaultValue="2026-04-01"
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs text-gray-600 mb-1">Tanggal Akhir</label>
+                <div className="col-span-1 md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-2">Tanggal Akhir</label>
                   <div className="relative">
                     <Calendar className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input 
                       type="date" 
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
+                      className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                       defaultValue="2026-04-09"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Tipe Transaksi</label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                    <option>Semua Tipe</option>
+                  <label className="block text-xs font-medium text-gray-600 mb-2">Tipe</label>
+                  <select className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
+                    <option>Semua</option>
                     <option>Pemasukan</option>
                     <option>Pengeluaran</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Nominal Min</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-2">Nominal Min</label>
                   <input 
                     type="text" 
                     placeholder="Rp 0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Nominal Max</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-2">Nominal Max</label>
                   <input 
                     type="text" 
                     placeholder="Rp 999.999.999"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                   />
                 </div>
                 <div className="flex items-end">
-                  <button className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 text-sm">
-                    Apply Filters
+                  <button className="w-full px-4 py-2.5 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 text-sm font-medium shadow-lg shadow-emerald-500/30 transition-all">
+                    Terapkan Filter
                   </button>
                 </div>
               </div>
@@ -428,50 +458,88 @@ export function PembukuanPage() {
           )}
         </div>
 
-        {/* 📊 SUMMARY BOX (BEFORE TABLE) */}
+        {/* 📊 SUMMARY BOX (BEFORE TABLE) - REDESIGN */}
         {(activeTab === "pemasukan" || activeTab === "pengeluaran") && (
           <div className="px-6 pt-6 pb-0">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               {/* Total Pemasukan */}
-              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white text-sm">+</span>
+              <div className="p-5 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/30">
+                      <span className="text-white text-lg">💰</span>
+                    </div>
+                    <div className="text-sm font-medium text-green-800">Total Pemasukan</div>
                   </div>
-                  <div className="text-xs text-green-700">Total Pemasukan</div>
+                  <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full">{countPemasukan} transaksi</span>
                 </div>
-                <div className="font-mono text-xl text-gray-900">
+                <div className="font-mono text-2xl font-bold text-green-700">
                   Rp {new Intl.NumberFormat("id-ID").format(totalPemasukan)}
                 </div>
-                <div className="text-xs text-green-600 mt-1">{countPemasukan} transaksi</div>
+                <div className="flex items-center gap-1 mt-2 text-xs text-green-600">
+                  <span>📈</span>
+                  <span>Pendapatan bulan ini</span>
+                </div>
               </div>
 
               {/* Total Pengeluaran */}
-              <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white text-sm">−</span>
+              <div className="p-5 bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center shadow-lg shadow-red-500/30">
+                      <span className="text-white text-lg">💸</span>
+                    </div>
+                    <div className="text-sm font-medium text-red-800">Total Pengeluaran</div>
                   </div>
-                  <div className="text-xs text-red-700">Total Pengeluaran</div>
+                  <span className="text-xs bg-red-200 text-red-800 px-2 py-1 rounded-full">{countPengeluaran} transaksi</span>
                 </div>
-                <div className="font-mono text-xl text-gray-900">
+                <div className="font-mono text-2xl font-bold text-red-700">
                   Rp {new Intl.NumberFormat("id-ID").format(totalPengeluaran)}
                 </div>
-                <div className="text-xs text-red-600 mt-1">{countPengeluaran} transaksi</div>
+                <div className="flex items-center gap-1 mt-2 text-xs text-red-600">
+                  <span>📉</span>
+                  <span>Biaya bulan ini</span>
+                </div>
               </div>
 
               {/* Net Cash Flow */}
-              <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white text-sm">Δ</span>
+              <div className={`p-5 rounded-xl border shadow-sm hover:shadow-md transition-shadow ${
+                netCashFlow >= 0 
+                  ? "bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200" 
+                  : "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200"
+              }`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg ${
+                      netCashFlow >= 0 
+                        ? "bg-emerald-500 shadow-emerald-500/30" 
+                        : "bg-orange-500 shadow-orange-500/30"
+                    }`}>
+                      <span className="text-white text-lg">{netCashFlow >= 0 ? "📊" : "⚠️"}</span>
+                    </div>
+                    <div className={`text-sm font-medium ${netCashFlow >= 0 ? "text-emerald-800" : "text-orange-800"}`}>
+                      Net Cash Flow
+                    </div>
                   </div>
-                  <div className="text-xs text-blue-700">Net Cash Flow</div>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    netCashFlow >= 0 
+                      ? "bg-emerald-200 text-emerald-800" 
+                      : "bg-orange-200 text-orange-800"
+                  }`}>
+                    {netCashFlow >= 0 ? "Positif ✅" : "Negatif ⚠️"}
+                  </span>
                 </div>
-                <div className={`font-mono text-xl ${netCashFlow >= 0 ? "text-green-700" : "text-red-600"}`}>
+                <div className={`font-mono text-2xl font-bold ${
+                  netCashFlow >= 0 ? "text-emerald-700" : "text-orange-700"
+                }`}>
                   {netCashFlow >= 0 ? "+" : "-"} Rp {new Intl.NumberFormat("id-ID").format(Math.abs(netCashFlow))}
                 </div>
-                <div className="text-xs text-blue-600 mt-1">Selisih periode ini</div>
+                <div className={`flex items-center gap-1 mt-2 text-xs ${
+                  netCashFlow >= 0 ? "text-emerald-600" : "text-orange-600"
+                }`}>
+                  <span>{netCashFlow >= 0 ? "🎉" : "📊"}</span>
+                  <span>{netCashFlow >= 0 ? "Keuntungan bersih" : "Rugi bersih"}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -560,66 +628,91 @@ type Props = {
 function PemasukanContent({ transactions, isLoading, onEdit, onDelete }: Props) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl">
+        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-500">Memuat data pemasukan...</p>
       </div>
     );
   }
 
   if (transactions.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        Belum ada data transaksi pemasukan
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+        <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+          <span className="text-4xl">💰</span>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-700 mb-2">Belum Ada Transaksi Pemasukan</h3>
+        <p className="text-sm text-gray-500 mb-4 text-center max-w-sm">
+          Tambahkan transaksi pemasukan pertama Anda dengan klik tombol "Tambah Transaksi"
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">No. Referensi</th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Deskripsi</th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal</th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {transactions.map((t) => (
-            <tr key={t.id} className="hover:bg-gray-50">
-              <td className="py-4 text-sm text-gray-900">
-                {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
-              </td>
-              <td className="py-4 text-sm font-mono text-gray-600">
-                {t.nomor_invoice || `INV-${String(t.id).padStart(4, "0")}`}
-              </td>
-              <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
-              <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
-              <td className="py-4 text-center">
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${t.status === "valid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
-                  {t.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                  {t.status === "valid" ? "Valid" : "Pending"}
-                </span>
-              </td>
-              <td className="py-4 text-sm text-gray-900 text-right font-mono">
-                Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
-              </td>
-              <td className="py-4 text-center">
-                <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </td>
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tanggal</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No. Referensi</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Deskripsi</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kategori</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Nominal</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {transactions.map((t) => (
+              <tr key={t.id} className="hover:bg-emerald-50/50 transition-colors group">
+                <td className="px-4 py-4 text-sm text-gray-900 font-medium">
+                  {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                </td>
+                <td className="px-4 py-4 text-sm font-mono text-emerald-700 bg-emerald-50/50">
+                  {t.nomor_invoice || `INV-${String(t.id).padStart(4, "0")}`}
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-800">{t.keterangan}</td>
+                <td className="px-4 py-4 text-sm text-gray-600">
+                  <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">{t.kategori}</span>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                    t.status === "valid" 
+                      ? "bg-green-100 text-green-700 border border-green-200" 
+                      : "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                  }`}>
+                    {t.status === "valid" ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                    {t.status === "valid" ? "Valid" : "Pending"}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-sm font-bold text-green-700 text-right font-mono">
+                  Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <div className="flex items-center justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => onEdit(t)} 
+                      className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors" 
+                      title="Edit"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => onDelete(t)} 
+                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors" 
+                      title="Hapus"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -627,66 +720,91 @@ function PemasukanContent({ transactions, isLoading, onEdit, onDelete }: Props) 
 function PengeluaranContent({ transactions, isLoading, onEdit, onDelete }: Props) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl">
+        <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-500">Memuat data pengeluaran...</p>
       </div>
     );
   }
 
   if (transactions.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        Belum ada data transaksi pengeluaran
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mb-4">
+          <span className="text-4xl">💸</span>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-700 mb-2">Belum Ada Transaksi Pengeluaran</h3>
+        <p className="text-sm text-gray-500 mb-4 text-center max-w-sm">
+          Tambahkan transaksi pengeluaran pertama Anda dengan klik tombol "Tambah Transaksi"
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">No. Voucher</th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Deskripsi</th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">Kategori</th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal</th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {transactions.map((t) => (
-            <tr key={t.id} className="hover:bg-gray-50">
-              <td className="py-4 text-sm text-gray-900">
-                {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
-              </td>
-              <td className="py-4 text-sm font-mono text-gray-600">
-                {t.nomor_invoice || `VCH-${String(t.id).padStart(4, "0")}`}
-              </td>
-              <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
-              <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
-              <td className="py-4 text-center">
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${t.status === "valid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
-                  {t.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                  {t.status === "valid" ? "Valid" : "Pending"}
-                </span>
-              </td>
-              <td className="py-4 text-sm text-gray-900 text-right font-mono">
-                Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
-              </td>
-              <td className="py-4 text-center">
-                <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </td>
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Tanggal</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">No. Voucher</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Deskripsi</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kategori</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Nominal</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {transactions.map((t) => (
+              <tr key={t.id} className="hover:bg-red-50/50 transition-colors group">
+                <td className="px-4 py-4 text-sm text-gray-900 font-medium">
+                  {new Date(t.tanggal).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}
+                </td>
+                <td className="px-4 py-4 text-sm font-mono text-red-700 bg-red-50/50">
+                  {t.nomor_invoice || `VCH-${String(t.id).padStart(4, "0")}`}
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-800">{t.keterangan}</td>
+                <td className="px-4 py-4 text-sm text-gray-600">
+                  <span className="px-2 py-1 bg-gray-100 rounded-full text-xs">{t.kategori}</span>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
+                    t.status === "valid" 
+                      ? "bg-green-100 text-green-700 border border-green-200" 
+                      : "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                  }`}>
+                    {t.status === "valid" ? <CheckCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                    {t.status === "valid" ? "Valid" : "Pending"}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-sm font-bold text-red-700 text-right font-mono">
+                  Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <div className="flex items-center justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <button 
+                      onClick={() => onEdit(t)} 
+                      className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors" 
+                      title="Edit"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => onDelete(t)} 
+                      className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors" 
+                      title="Hapus"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -716,43 +834,87 @@ function KasContent({ transactions, isLoading }: KasProps) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl">
+        <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-500">Memuat data kas...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Summary Boxes */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <div className="text-sm text-gray-500 mb-1">Saldo Awal</div>
-          <div className="font-mono text-xl text-gray-900">
+      {/* Summary Boxes - REDESIGN */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-sm">🏦</span>
+              </div>
+              <span className="text-sm font-medium text-blue-800">Saldo Awal</span>
+            </div>
+          </div>
+          <div className="font-mono text-2xl font-bold text-blue-700">
             Rp {formatCurrency(saldoAwal)}
           </div>
         </div>
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <div className="text-sm text-gray-500 mb-1">Total Mutasi</div>
-          <div className={`font-mono text-xl ${totalMutasi >= 0 ? "text-green-700" : "text-red-600"}`}>
+        <div className={`p-5 rounded-xl border shadow-sm hover:shadow-md transition-shadow ${
+          totalMutasi >= 0 
+            ? "bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200" 
+            : "bg-gradient-to-br from-red-50 to-red-100 border-red-200"
+        }`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                totalMutasi >= 0 ? "bg-emerald-500" : "bg-red-500"
+              }`}>
+                <span className="text-white text-sm">{totalMutasi >= 0 ? "📈" : "📉"}</span>
+              </div>
+              <span className={`text-sm font-medium ${totalMutasi >= 0 ? "text-emerald-800" : "text-red-800"}`}>
+                Total Mutasi
+              </span>
+            </div>
+            <span className="text-xs bg-white/50 px-2 py-1 rounded-full">
+              {transactions.length} transaksi
+            </span>
+          </div>
+          <div className={`font-mono text-2xl font-bold ${totalMutasi >= 0 ? "text-emerald-700" : "text-red-700"}`}>
             {totalMutasi >= 0 ? "+" : "-"} Rp {formatCurrency(totalMutasi)}
           </div>
-          <div className="text-xs text-gray-400 mt-1">
-            {transactions.length} transaksi
-          </div>
         </div>
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <div className="text-sm text-gray-500 mb-1">Saldo Akhir</div>
-          <div className={`font-mono text-xl ${saldoAkhir >= 0 ? "text-gray-900" : "text-red-600"}`}>
+        <div className={`p-5 rounded-xl border shadow-sm hover:shadow-md transition-shadow ${
+          saldoAkhir >= 0 
+            ? "bg-gradient-to-br from-violet-50 to-violet-100 border-violet-200" 
+            : "bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200"
+        }`}>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                saldoAkhir >= 0 ? "bg-violet-500" : "bg-orange-500"
+              }`}>
+                <span className="text-white text-sm">💰</span>
+              </div>
+              <span className={`text-sm font-medium ${saldoAkhir >= 0 ? "text-violet-800" : "text-orange-800"}`}>
+                Saldo Akhir
+              </span>
+            </div>
+          </div>
+          <div className={`font-mono text-2xl font-bold ${saldoAkhir >= 0 ? "text-violet-700" : "text-orange-700"}`}>
             Rp {formatCurrency(saldoAkhir)}
           </div>
         </div>
       </div>
 
-      {/* Tabel Mutasi Kas */}
+      {/* Tabel Mutasi Kas - REDESIGN */}
       {transactions.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          Belum ada mutasi kas
+        <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+          <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <span className="text-4xl">🏦</span>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Belum Ada Mutasi Kas</h3>
+          <p className="text-sm text-gray-500 mb-4 text-center max-w-sm">
+            Mutasi kas akan muncul setelah ada transaksi pemasukan atau pengeluaran
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -818,91 +980,88 @@ type AsetProps = {
 function AsetContent({ asetList, isLoading, onEdit, onDelete }: AsetProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl">
+        <div className="w-12 h-12 border-4 border-violet-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-500">Memuat data aset tetap...</p>
       </div>
     );
   }
 
   if (asetList.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        Belum ada data aset tetap. Klik "Tambah Transaksi" untuk menambah aset.
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+        <div className="w-20 h-20 bg-violet-100 rounded-full flex items-center justify-center mb-4">
+          <span className="text-4xl">🏢</span>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-700 mb-2">Belum Ada Aset Tetap</h3>
+        <p className="text-sm text-gray-500 mb-4 text-center max-w-sm">
+          Tambahkan aset tetap pertama Anda dengan klik tombol "Tambah Transaksi"
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Kode Aset
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Nama Aset
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Kategori
-            </th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Nilai Perolehan
-            </th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Akumulasi Depresiasi
-            </th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Nilai Buku
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Status
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Aksi
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {asetList.map((aset, index) => (
-            <tr key={aset.id} className="hover:bg-gray-50">
-              <td className="py-4 text-sm font-mono text-gray-600">
-                AST-{String(index + 1).padStart(3, "0")}
-              </td>
-              <td className="py-4 text-sm text-gray-900">{aset.nama_aset}</td>
-              <td className="py-4 text-sm text-gray-600 capitalize">{aset.kategori}</td>
-              <td className="py-4 text-sm text-gray-900 text-right font-mono">
-                Rp {new Intl.NumberFormat("id-ID").format(Number(aset.nilai_aset))}
-              </td>
-              <td className="py-4 text-sm text-gray-600 text-right font-mono">
-                Rp {new Intl.NumberFormat("id-ID").format(Number(aset.akumulasi_depresiasi || 0))}
-              </td>
-              <td className="py-4 text-sm text-gray-900 text-right font-mono">
-                Rp {new Intl.NumberFormat("id-ID").format(Number(aset.nilai_buku || aset.nilai_aset))}
-              </td>
-              <td className="py-4 text-center">
-                <span className={`inline-flex px-2 py-1 rounded text-xs ${
-                  aset.status === "aktif"
-                    ? "bg-green-50 text-green-700"
-                    : aset.status === "dijual"
-                    ? "bg-blue-50 text-blue-700"
-                    : "bg-red-50 text-red-700"
-                }`}>
-                  {aset.status}
-                </span>
-              </td>
-              <td className="py-4 text-center">
-                <button onClick={() => onEdit(aset)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(aset)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </td>
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kode Aset</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nama Aset</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kategori</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Nilai Perolehan</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Akumulasi Depresiasi</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Nilai Buku</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {asetList.map((aset, index) => (
+              <tr key={aset.id} className="hover:bg-violet-50/50 transition-colors group">
+                <td className="px-4 py-4 text-sm font-mono text-violet-700 bg-violet-50/50">
+                  AST-{String(index + 1).padStart(3, "0")}
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-900 font-medium">{aset.nama_aset}</td>
+                <td className="px-4 py-4 text-sm text-gray-600">
+                  <span className="px-2 py-1 bg-gray-100 rounded-full text-xs capitalize">{aset.kategori}</span>
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-900 text-right font-mono">
+                  Rp {new Intl.NumberFormat("id-ID").format(Number(aset.nilai_aset))}
+                </td>
+                <td className="px-4 py-4 text-sm text-red-600 text-right font-mono">
+                  Rp {new Intl.NumberFormat("id-ID").format(Number(aset.akumulasi_depresiasi || 0))}
+                </td>
+                <td className="px-4 py-4 text-sm font-bold text-violet-700 text-right font-mono">
+                  Rp {new Intl.NumberFormat("id-ID").format(Number(aset.nilai_buku || aset.nilai_aset))}
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-medium ${
+                    aset.status === "aktif"
+                      ? "bg-green-100 text-green-700 border border-green-200"
+                      : aset.status === "dijual"
+                      ? "bg-blue-100 text-blue-700 border border-blue-200"
+                      : "bg-red-100 text-red-700 border border-red-200"
+                  }`}>
+                    {aset.status}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <div className="flex items-center justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => onEdit(aset)} className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors" title="Edit">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => onDelete(aset)} className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Hapus">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -914,97 +1073,94 @@ type InventarisProps = {
   onEdit: (inventaris: any) => void;
   onDelete: (inventaris: any) => void;
 };
-
 function InventarisContent({ inventarisList, isLoading, onEdit, onDelete }: InventarisProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl">
+        <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-500">Memuat data inventaris...</p>
       </div>
     );
   }
 
   if (inventarisList.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        Belum ada data inventaris. Klik "Tambah Transaksi" untuk menambah inventaris.
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+          <span className="text-4xl">📦</span>
+        </div>
+        <h3 className="text-lg font-semibold text-gray-700 mb-2">Belum Ada Inventaris</h3>
+        <p className="text-sm text-gray-500 mb-4 text-center max-w-sm">
+          Tambahkan inventaris pertama Anda dengan klik tombol "Tambah Transaksi"
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Kode Barang
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Nama Barang
-            </th>
-            <th className="pb-3 text-left text-xs font-medium text-gray-500 uppercase">
-              Kategori
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Stok
-            </th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Harga Satuan
-            </th>
-            <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Total Nilai
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Status
-            </th>
-            <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">
-              Aksi
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-200">
-          {inventarisList.map((item, index) => (
-            <tr key={item.id} className="hover:bg-gray-50">
-              <td className="py-4 text-sm font-mono text-gray-600">
-                BRG-{String(index + 1).padStart(3, "0")}
-              </td>
-              <td className="py-4 text-sm text-gray-900">{item.nama_barang}</td>
-              <td className="py-4 text-sm text-gray-600 capitalize">{item.kategori}</td>
-              <td className="py-4 text-sm text-gray-900 text-center">
-                {item.jumlah} {item.satuan}
-              </td>
-              <td className="py-4 text-sm text-gray-900 text-right font-mono">
-                Rp {new Intl.NumberFormat("id-ID").format(Number(item.harga_satuan))}
-              </td>
-              <td className="py-4 text-sm text-gray-900 text-right font-mono">
-                Rp {new Intl.NumberFormat("id-ID").format(Number(item.total_nilai))}
-              </td>
-              <td className="py-4 text-center">
-                <span className={`inline-flex px-2 py-1 rounded text-xs ${
-                  item.status === "tersedia"
-                    ? "bg-green-50 text-green-700"
-                    : item.status === "digunakan"
-                    ? "bg-blue-50 text-blue-700"
-                    : item.status === "maintenance"
-                    ? "bg-yellow-50 text-yellow-700"
-                    : "bg-red-50 text-red-700"
-                }`}>
-                  {item.status}
-                </span>
-              </td>
-              <td className="py-4 text-center">
-                <button onClick={() => onEdit(item)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(item)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </td>
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kode Barang</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Nama Barang</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Kategori</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Stok</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Harga Satuan</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Nilai</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">Aksi</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {inventarisList.map((item, index) => (
+              <tr key={item.id} className="hover:bg-amber-50/50 transition-colors group">
+                <td className="px-4 py-4 text-sm font-mono text-amber-700 bg-amber-50/50">
+                  BRG-{String(index + 1).padStart(3, "0")}
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-900 font-medium">{item.nama_barang}</td>
+                <td className="px-4 py-4 text-sm text-gray-600">
+                  <span className="px-2 py-1 bg-gray-100 rounded-full text-xs capitalize">{item.kategori}</span>
+                </td>
+                <td className="px-4 py-4 text-sm text-center">
+                  <span className="font-medium text-gray-900">{item.jumlah}</span>
+                  <span className="text-gray-500 text-xs ml-1">{item.satuan}</span>
+                </td>
+                <td className="px-4 py-4 text-sm text-gray-900 text-right font-mono">
+                  Rp {new Intl.NumberFormat("id-ID").format(Number(item.harga_satuan))}
+                </td>
+                <td className="px-4 py-4 text-sm font-bold text-amber-700 text-right font-mono">
+                  Rp {new Intl.NumberFormat("id-ID").format(Number(item.total_nilai))}
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <span className={`inline-flex px-3 py-1.5 rounded-full text-xs font-medium ${
+                    item.status === "tersedia"
+                      ? "bg-green-100 text-green-700 border border-green-200"
+                      : item.status === "digunakan"
+                      ? "bg-blue-100 text-blue-700 border border-blue-200"
+                      : item.status === "maintenance"
+                      ? "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                      : "bg-red-100 text-red-700 border border-red-200"
+                  }`}>
+                    {item.status}
+                  </span>
+                </td>
+                <td className="px-4 py-4 text-center">
+                  <div className="flex items-center justify-center gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => onEdit(item)} className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors" title="Edit">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => onDelete(item)} className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors" title="Hapus">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -1070,8 +1226,9 @@ function RekonsiliasiContent({ onEdit, onDelete }: RekonsiliasiProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl">
+        <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="text-sm text-gray-500">Memuat data rekonsiliasi...</p>
       </div>
     );
   }
@@ -1086,42 +1243,75 @@ function RekonsiliasiContent({ onEdit, onDelete }: RekonsiliasiProps) {
 
   return (
     <div className="space-y-6">
-          {/* Summary & Add Button */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <div className="text-sm text-gray-500 mb-1">Total Rekonsiliasi</div>
-                <div className="font-mono text-xl text-gray-900">{rekonsiliasiList.length}</div>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="text-sm text-green-700 mb-1">Sesuai</div>
-                <div className="font-mono text-xl text-green-700">{sesuaiCount}</div>
-              </div>
-              <div className="p-4 bg-red-50 rounded-lg">
-                <div className="text-sm text-red-700 mb-1">Ada Selisih</div>
-                <div className="font-mono text-xl text-red-700">{selisihCount}</div>
-              </div>
-              <div className={`p-4 rounded-lg ${totalSelisih === 0 ? "bg-green-50" : "bg-yellow-50"}`}>
-                <div className="text-sm text-gray-600 mb-1">Total Selisih</div>
-                <div className={`font-mono text-xl ${totalSelisih === 0 ? "text-green-700" : "text-yellow-700"}`}>
-                  Rp {formatCurrency(Math.abs(totalSelisih))}
-                  {totalSelisih === 0 ? " ✅" : ""}
-                </div>
-              </div>
+      {/* Summary & Add Button - REDESIGN */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="p-5 bg-gradient-to-br from-cyan-50 to-cyan-100 rounded-xl border border-cyan-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center">
+              <span className="text-white text-sm">📋</span>
             </div>
-            <button
-              onClick={() => { setSelectedRekonsiliasi(null); setIsModalOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-            >
-              <Plus className="w-4 h-4" />
-              Tambah Rekonsiliasi
-            </button>
+            <span className="text-sm font-medium text-cyan-800">Total Rekonsiliasi</span>
           </div>
+          <div className="font-mono text-2xl font-bold text-cyan-700">{rekonsiliasiList.length}</div>
+        </div>
+        <div className="p-5 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+              <span className="text-white text-sm">✅</span>
+            </div>
+            <span className="text-sm font-medium text-green-800">Sesuai</span>
+          </div>
+          <div className="font-mono text-2xl font-bold text-green-700">{sesuaiCount}</div>
+        </div>
+        <div className="p-5 bg-gradient-to-br from-red-50 to-red-100 rounded-xl border border-red-200 shadow-sm hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+              <span className="text-white text-sm">⚠️</span>
+            </div>
+            <span className="text-sm font-medium text-red-800">Ada Selisih</span>
+          </div>
+          <div className="font-mono text-2xl font-bold text-red-700">{selisihCount}</div>
+        </div>
+        <div className={`p-5 rounded-xl border shadow-sm hover:shadow-md transition-shadow ${
+          totalSelisih === 0 
+            ? "bg-gradient-to-br from-green-50 to-green-100 border-green-200" 
+            : "bg-gradient-to-br from-yellow-50 to-yellow-100 border-yellow-200"
+        }`}>
+          <div className="flex items-center gap-2 mb-3">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+              totalSelisih === 0 ? "bg-green-500" : "bg-yellow-500"
+            }`}>
+              <span className="text-white text-sm">{totalSelisih === 0 ? "🎉" : "📊"}</span>
+            </div>
+            <span className={`text-sm font-medium ${totalSelisih === 0 ? "text-green-800" : "text-yellow-800"}`}>
+              Total Selisih
+            </span>
+          </div>
+          <div className={`font-mono text-2xl font-bold ${totalSelisih === 0 ? "text-green-700" : "text-yellow-700"}`}>
+            Rp {formatCurrency(Math.abs(totalSelisih))}
+          </div>
+        </div>
+        <div className="md:col-span-4 flex justify-end">
+          <button
+            onClick={() => { setSelectedRekonsiliasi(null); setIsModalOpen(true); }}
+            className="flex items-center gap-2 px-5 py-3 bg-cyan-500 text-white rounded-xl hover:bg-cyan-600 shadow-lg shadow-cyan-500/30 transition-all font-medium"
+          >
+            <Plus className="w-5 h-5" />
+            Tambah Rekonsiliasi
+          </button>
+        </div>
+      </div>
 
-      {/* Table */}
+      {/* Table - REDESIGN */}
       {rekonsiliasiList.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
-          Belum ada data rekonsiliasi bank. Klik "Tambah" untuk menambah rekonsiliasi.
+        <div className="flex flex-col items-center justify-center py-16 bg-gradient-to-b from-gray-50 to-white rounded-xl border-2 border-dashed border-gray-200">
+          <div className="w-20 h-20 bg-cyan-100 rounded-full flex items-center justify-center mb-4">
+            <span className="text-4xl">📋</span>
+          </div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">Belum Ada Rekonsiliasi Bank</h3>
+          <p className="text-sm text-gray-500 mb-4 text-center max-w-sm">
+            Tambahkan rekonsiliasi bank pertama Anda dengan klik tombol "Tambah Rekonsiliasi"
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto">
