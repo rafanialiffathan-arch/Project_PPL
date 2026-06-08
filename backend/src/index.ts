@@ -1,0 +1,86 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import path from 'path';
+import { testConnection } from './config/db';
+
+import transaksiRoutes, { uploadRouter } from './routes/transaksi';
+import authRoutes from './routes/auth';
+import perencanaanRoutes from './routes/perencanaan';
+import asetRoutes from './routes/aset';
+import inventarisRoutes from './routes/inventaris';
+import rekonsiliasiRoutes from './routes/rekonsiliasi';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// ==========================
+// MIDDLEWARE
+// ==========================
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}));
+
+app.use(express.json());
+
+// ==========================
+// STATIC FILES (UPLOADS)
+// ==========================
+const uploadsPath = path.resolve(process.cwd(), 'uploads');
+console.log('Serving uploads from:', uploadsPath);
+app.use('/uploads', express.static(uploadsPath));
+
+// ==========================
+// ROUTES
+// ==========================
+app.use('/api/auth', authRoutes);
+app.use('/api/transaksi', transaksiRoutes);
+app.use('/api/transaksi/upload', uploadRouter);
+app.use('/api/perencanaan', perencanaanRoutes);
+app.use('/api/aset', asetRoutes);
+app.use('/api/inventaris', inventarisRoutes);
+app.use('/api/rekonsiliasi', rekonsiliasiRoutes);
+
+// ==========================
+// ROOT ENDPOINT
+// ==========================
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Finsped Express API running',
+    status: 'OK'
+  });
+});
+
+// ==========================
+// ERROR HANDLER (GLOBAL)
+// ==========================
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error('🔥 ERROR:', err);
+
+  res.status(500).json({
+    message: 'Internal Server Error',
+    error: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
+});
+
+// ==========================
+// START SERVER
+// ==========================
+const startServer = async () => {
+  try {
+    await testConnection(); // pastikan DB connect dulu
+
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running at http://localhost:${PORT}`);
+    });
+
+  } catch (error) {
+    console.error('❌ Gagal connect ke database:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
