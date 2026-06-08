@@ -1,7 +1,7 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { LoginPage } from "./pages/LoginPage";
-import { RegisterPage } from "./pages/RegisterPage";
+import { RegisterDisabledPage } from "./pages/RegisterDisabledPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PerencanaanPage } from "./pages/PerencanaanPage";
 import { PembukuanPage } from "./pages/PembukuanPage";
@@ -15,8 +15,11 @@ export const router = createBrowserRouter([
     Component: LoginPage,
   },
   {
+    // Route /register tetap ada di router agar URL yang di-bookmark
+    // tidak 404 (yang bisa membingungkan), tapi halaman hanya menampilkan
+    // pesan bahwa registrasi publik dinonaktifkan.
     path: "/register",
-    Component: RegisterPage,
+    Component: RegisterDisabledPage,
   },
   {
     path: "/",

@@ -1,10 +1,7 @@
-import { Link, useNavigate } from "react-router";
 import { LogIn } from "lucide-react";
 import { apiFetch, saveToken, saveUser } from "../../lib/api";
 
 export function LoginPage() {
-  const navigate = useNavigate();
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
@@ -27,7 +24,7 @@ export function LoginPage() {
 
       saveToken(data.token);
       saveUser(data.user);
-      navigate("/");
+      window.location.href = "/";
     } catch {
       alert("Koneksi ke server gagal. Pastikan backend menyala.");
     }
@@ -83,19 +80,10 @@ export function LoginPage() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Belum punya akun?{" "}
-              <Link to="/register" className="text-gray-900 font-medium hover:underline">
-                Daftar sekarang
-              </Link>
+            <p className="text-xs text-gray-500">
+              (c) 2026 Finsped Express.
             </p>
           </div>
-        </div>
-
-        <div className="mt-6 text-center">
-          <p className="text-xs text-gray-500">
-            (c) 2026 Finsped Express.
-          </p>
         </div>
       </div>
     </div>

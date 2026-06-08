@@ -15,15 +15,37 @@ const toAuthUser = (user: any) => ({
   role: user.role
 });
 
+const publicRegisterEnabled = () => process.env.ALLOW_PUBLIC_REGISTER === 'true';
+
 // ==========================
-// REGISTER
+// REGISTER (PUBLIC - DISABLED FOR PRODUCTION)
 // ==========================
+// Akun baru hanya dapat dibuat oleh Admin Sistem melalui Admin Panel.
+// Endpoint ini dinonaktifkan untuk publik demi keamanan produksi.
+// Untuk sementara endpoint tetap ada agar tidak mengganggu kompatibilitas,
+// namun akan selalu menolak request publik kecuali ALLOW_PUBLIC_REGISTER=true.
 router.post('/register', async (req, res) => {
+  if (!publicRegisterEnabled()) {
+    return res.status(403).json({
+      message:
+        'Registrasi publik dinonaktifkan. Akun hanya dapat dibuat oleh Admin Sistem.',
+    });
+  }
+
   const { nama_lengkap, email, username, password, role } = req.body;
 
   // Validasi basic
   if (!nama_lengkap || !email || !username || !password) {
     return res.status(400).json({ message: 'Semua field wajib diisi' });
+  }
+
+  // Untuk alur publik, role TIDAK boleh dipilih sembarangan.
+  // Default role untuk register publik yang diizinkan: 'pengelola_internal'.
+  const allowedRole = 'pengelola_internal';
+  if (role && role !== allowedRole) {
+    return res.status(400).json({
+      message: 'Peran tidak valid untuk registrasi publik.',
+    });
   }
 
   try {
@@ -39,40 +61,35 @@ router.post('/register', async (req, res) => {
       [username]
     );
 
-    // Return specific error message
     if (emailExists.length > 0 && usernameExists.length > 0) {
       return res.status(409).json({
-        message: 'Email dan username sudah digunakan.'
+        message: 'Email dan username sudah digunakan.',
       });
     } else if (emailExists.length > 0) {
       return res.status(409).json({
-        message: 'Email sudah pernah didaftarkan/digunakan.'
+        message: 'Email sudah pernah didaftarkan/digunakan.',
       });
     } else if (usernameExists.length > 0) {
       return res.status(409).json({
-        message: 'Username sudah terdaftar. Silakan gunakan username lain.'
+        message: 'Username sudah terdaftar. Silakan gunakan username lain.',
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user
     await pool.query(
       `INSERT INTO users (nama_lengkap, email, username, password, role)
        VALUES (?, ?, ?, ?, ?)`,
-      [nama_lengkap, email, username, hashedPassword, role || 'admin']
+      [nama_lengkap, email, username, hashedPassword, allowedRole]
     );
 
     return res.status(201).json({
-      message: 'Registrasi berhasil! Silakan login.'
+      message: 'Registrasi berhasil! Silakan login.',
     });
-
   } catch (err) {
-    console.error(err);
+    console.error('Register error:', err);
     return res.status(500).json({
-      message: 'Server error',
-      error: err
+      message: 'Terjadi kesalahan server',
     });
   }
 });
@@ -83,15 +100,13 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { identifier, password } = req.body;
 
-  // Validasi
   if (!identifier || !password) {
     return res.status(400).json({
-      message: 'Username/email dan password wajib diisi'
+      message: 'Username/email dan password wajib diisi',
     });
   }
 
   try {
-    // Cari user berdasarkan email ATAU username
     const [rows]: any = await pool.query(
       'SELECT * FROM users WHERE email = ? OR username = ?',
       [identifier, identifier]
@@ -99,26 +114,24 @@ router.post('/login', async (req, res) => {
 
     if (rows.length === 0) {
       return res.status(401).json({
-        message: 'Username atau email belum terdaftar.'
+        message: 'Username atau email belum terdaftar.',
       });
     }
 
     const user = rows[0];
 
-    // Compare password
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
       return res.status(401).json({
-        message: 'Username/email atau password salah.'
+        message: 'Username/email atau password salah.',
       });
     }
 
-    // Generate JWT
     const token = jwt.sign(
       {
         id: user.id,
         username: user.username,
-        role: user.role
+        role: user.role,
       },
       process.env.JWT_SECRET as string,
       { expiresIn: '7d' }
@@ -127,14 +140,12 @@ router.post('/login', async (req, res) => {
     return res.json({
       message: 'Login berhasil!',
       token,
-      user: toAuthUser(user)
+      user: toAuthUser(user),
     });
-
   } catch (err) {
-    console.error(err);
+    console.error('Login error:', err);
     return res.status(500).json({
-      message: 'Server error',
-      error: err
+      message: 'Terjadi kesalahan server',
     });
   }
 });
@@ -155,10 +166,9 @@ router.get('/me', authMiddleware as any, async (req: AuthRequest, res) => {
 
     return res.json(toAuthUser(rows[0]));
   } catch (err) {
-    console.error(err);
+    console.error('Me error:', err);
     return res.status(500).json({
-      message: 'Server error',
-      error: err
+      message: 'Terjadi kesalahan server',
     });
   }
 });
