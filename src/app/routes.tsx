@@ -2,6 +2,8 @@ import { createBrowserRouter, Navigate } from "react-router";
 import { DashboardLayout } from "./components/DashboardLayout";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterDisabledPage } from "./pages/RegisterDisabledPage";
+import { AdminGuard } from "./components/AdminGuard";
+import { ManajemenUserPage } from "./pages/ManajemenUserPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PerencanaanPage } from "./pages/PerencanaanPage";
 import { PembukuanPage } from "./pages/PembukuanPage";
@@ -30,6 +32,15 @@ export const router = createBrowserRouter([
       { path: "pembukuan", Component: PembukuanPage },
       { path: "laporan", Component: LaporanPage },
       { path: "profile", Component: ProfilePage },
+      // Admin-only route
+      {
+        path: "admin/users",
+        element: (
+          <AdminGuard>
+            <ManajemenUserPage />
+          </AdminGuard>
+        ),
+      },
       { path: "*", Component: NotFoundPage },
     ],
   },

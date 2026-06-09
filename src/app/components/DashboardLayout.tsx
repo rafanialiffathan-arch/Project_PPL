@@ -7,8 +7,9 @@ import {
   User,
   LogOut,
   Menu,
+  Users,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   apiFetch,
   AuthUser,
@@ -18,7 +19,7 @@ import {
   saveUser,
 } from "../../lib/api";
 
-const navigation = [
+const baseNavigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Perencanaan", href: "/perencanaan", icon: FileText },
   { name: "Pembukuan", href: "/pembukuan", icon: BookOpen },
@@ -26,9 +27,15 @@ const navigation = [
   { name: "Profile", href: "/profile", icon: User },
 ];
 
+const adminNavigation = [
+  { name: "Manajemen User", href: "/admin/users", icon: Users },
+];
+
 const getRoleLabel = (role?: string) => {
-  if (role === "admin") return "Administrator";
+  if (role === "admin_sistem") return "Admin Sistem";
   if (role === "pimpinan") return "Pimpinan";
+  if (role === "pengelola_internal") return "Pengelola Internal";
+  if (role === "admin") return "Administrator";
   return role || "User";
 };
 
@@ -87,6 +94,14 @@ export function DashboardLayout() {
     return null;
   }
 
+  const navItems = useMemo(
+    () => [
+      ...baseNavigation,
+      ...(currentUser?.role === "admin_sistem" ? adminNavigation : []),
+    ],
+    [currentUser?.role]
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <aside
@@ -111,7 +126,7 @@ export function DashboardLayout() {
         </div>
 
         <nav className="p-4 space-y-2">
-          {navigation.map((item) => {
+          {navItems.map((item) => {
             const isActive =
               location.pathname === item.href ||
               (item.href !== "/" && location.pathname.startsWith(item.href));
