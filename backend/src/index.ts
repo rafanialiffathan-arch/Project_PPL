@@ -6,6 +6,7 @@ import { testConnection } from './config/db';
 
 import transaksiRoutes, { uploadRouter } from './routes/transaksi';
 import authRoutes from './routes/auth';
+import adminRoutes from './routes/admin';
 import perencanaanRoutes from './routes/perencanaan';
 import asetRoutes from './routes/aset';
 import inventarisRoutes from './routes/inventaris';
@@ -37,6 +38,7 @@ app.use('/uploads', express.static(uploadsPath));
 // ROUTES
 // ==========================
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/transaksi', transaksiRoutes);
 app.use('/api/transaksi/upload', uploadRouter);
 app.use('/api/perencanaan', perencanaanRoutes);
