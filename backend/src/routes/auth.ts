@@ -12,18 +12,91 @@ const toAuthUser = (user: any) => ({
   nama_lengkap: user.nama_lengkap,
   username: user.username,
   email: user.email,
-  role: user.role
+  role: user.role,
+  permissions: parsePermissions(user.permissions)
 });
 
 const publicRegisterEnabled = () => process.env.ALLOW_PUBLIC_REGISTER === 'true';
 
+const SUPER_ADMIN_PERMISSIONS = [
+  'input_pemasukan',
+  'input_pengeluaran',
+  'manage_assets',
+  'manage_inventory',
+  'manage_reconciliation',
+  'manage_users',
+  'view_reports',
+  'approve_transactions'
+];
+
+const PEMIMPIN_PERMISSIONS = [
+  'view_reports',
+  'approve_transactions',
+  'view_audit_log'
+];
+
+function parsePermissions(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function defaultPermissionsForRole(role: string): string[] {
+  switch (role) {
+    case 'admin':
+    case 'admin_sistem':
+      return [...SUPER_ADMIN_PERMISSIONS];
+    case 'pimpinan':
+      return [...PEMIMPIN_PERMISSIONS];
+    case 'pengelola':
+    case 'pengelola_internal':
+      return ['input_pemasukan', 'input_pengeluaran', 'manage_assets', 'manage_inventory', 'manage_reconciliation', 'view_reports'];
+    default:
+      return [];
+  }
+}
+
+function buildUserResponse(user: any) {
+  const storedPerms = parsePermissions(user.permissions);
+  const effectivePerms = storedPerms.length > 0
+    ? storedPerms
+    : defaultPermissionsForRole(user.role);
+
+  return {
+    id: user.id,
+    nama: user.nama_lengkap,
+    nama_lengkap: user.nama_lengkap,
+    username: user.username,
+    email: user.email,
+    role: user.role,
+    permissions: effectivePerms
+  };
+}
+
+function signToken(user: any, permissions: string[]) {
+  return jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      permissions
+    },
+    process.env.JWT_SECRET as string,
+    { expiresIn: '7d' }
+  );
+}
+
 // ==========================
 // REGISTER (PUBLIC - DISABLED FOR PRODUCTION)
 // ==========================
-// Akun baru hanya dapat dibuat oleh Admin Sistem melalui Admin Panel.
-// Endpoint ini dinonaktifkan untuk publik demi keamanan produksi.
-// Untuk sementara endpoint tetap ada agar tidak mengganggu kompatibilitas,
-// namun akan selalu menolak request publik kecuali ALLOW_PUBLIC_REGISTER=true.
 router.post('/register', async (req, res) => {
   if (!publicRegisterEnabled()) {
     return res.status(403).json({
@@ -32,55 +105,40 @@ router.post('/register', async (req, res) => {
     });
   }
 
-  const { nama_lengkap, email, username, password, role } = req.body;
+  const { nama_lengkap, email, username, password } = req.body;
 
-  // Validasi basic
   if (!nama_lengkap || !email || !username || !password) {
     return res.status(400).json({ message: 'Semua field wajib diisi' });
   }
 
-  // Untuk alur publik, role TIDAK boleh dipilih sembarangan.
-  // Default role untuk register publik yang diizinkan: 'pengelola_internal'.
   const allowedRole = 'pengelola_internal';
-  if (role && role !== allowedRole) {
-    return res.status(400).json({
-      message: 'Peran tidak valid untuk registrasi publik.',
-    });
-  }
 
   try {
-    // Cek email separately
     const [emailExists]: any = await pool.query(
       'SELECT id FROM users WHERE email = ?',
       [email]
     );
 
-    // Cek username separately
     const [usernameExists]: any = await pool.query(
       'SELECT id FROM users WHERE username = ?',
       [username]
     );
 
     if (emailExists.length > 0 && usernameExists.length > 0) {
-      return res.status(409).json({
-        message: 'Email dan username sudah digunakan.',
-      });
+      return res.status(409).json({ message: 'Email dan username sudah digunakan.' });
     } else if (emailExists.length > 0) {
-      return res.status(409).json({
-        message: 'Email sudah pernah didaftarkan/digunakan.',
-      });
+      return res.status(409).json({ message: 'Email sudah pernah didaftarkan.' });
     } else if (usernameExists.length > 0) {
-      return res.status(409).json({
-        message: 'Username sudah terdaftar. Silakan gunakan username lain.',
-      });
+      return res.status(409).json({ message: 'Username sudah terdaftar.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const defaultPerms = defaultPermissionsForRole(allowedRole);
 
     await pool.query(
-      `INSERT INTO users (nama_lengkap, email, username, password, role)
-       VALUES (?, ?, ?, ?, ?)`,
-      [nama_lengkap, email, username, hashedPassword, allowedRole]
+      `INSERT INTO users (nama_lengkap, email, username, password, role, permissions)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [nama_lengkap, email, username, hashedPassword, allowedRole, JSON.stringify(defaultPerms)]
     );
 
     return res.status(201).json({
@@ -88,9 +146,7 @@ router.post('/register', async (req, res) => {
     });
   } catch (err) {
     console.error('Register error:', err);
-    return res.status(500).json({
-      message: 'Terjadi kesalahan server',
-    });
+    return res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
@@ -101,9 +157,7 @@ router.post('/login', async (req, res) => {
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
-    return res.status(400).json({
-      message: 'Username/email dan password wajib diisi',
-    });
+    return res.status(400).json({ message: 'Username/email dan password wajib diisi' });
   }
 
   try {
@@ -113,40 +167,27 @@ router.post('/login', async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(401).json({
-        message: 'Username atau email belum terdaftar.',
-      });
+      return res.status(401).json({ message: 'Username atau email belum terdaftar.' });
     }
 
     const user = rows[0];
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) {
-      return res.status(401).json({
-        message: 'Username/email atau password salah.',
-      });
+      return res.status(401).json({ message: 'Username/email atau password salah.' });
     }
 
-    const token = jwt.sign(
-      {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-      },
-      process.env.JWT_SECRET as string,
-      { expiresIn: '7d' }
-    );
+    const userResponse = buildUserResponse(user);
+    const token = signToken(user, userResponse.permissions);
 
     return res.json({
       message: 'Login berhasil!',
       token,
-      user: toAuthUser(user),
+      user: userResponse
     });
   } catch (err) {
     console.error('Login error:', err);
-    return res.status(500).json({
-      message: 'Terjadi kesalahan server',
-    });
+    return res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
@@ -156,7 +197,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware as any, async (req: AuthRequest, res) => {
   try {
     const [rows]: any = await pool.query(
-      'SELECT id, nama_lengkap, email, username, role FROM users WHERE id = ?',
+      'SELECT id, nama_lengkap, email, username, role, permissions FROM users WHERE id = ?',
       [req.user!.id]
     );
 
@@ -164,12 +205,39 @@ router.get('/me', authMiddleware as any, async (req: AuthRequest, res) => {
       return res.status(404).json({ message: 'User tidak ditemukan' });
     }
 
-    return res.json(toAuthUser(rows[0]));
+    return res.json(buildUserResponse(rows[0]));
   } catch (err) {
     console.error('Me error:', err);
-    return res.status(500).json({
-      message: 'Terjadi kesalahan server',
+    return res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+});
+
+// ==========================
+// CURRENT USER PERMISSIONS
+// ==========================
+router.get('/permissions', authMiddleware as any, async (req: AuthRequest, res) => {
+  try {
+    const [rows]: any = await pool.query(
+      'SELECT role, permissions FROM users WHERE id = ?',
+      [req.user!.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User tidak ditemukan' });
+    }
+
+    const user = rows[0];
+    const stored = parsePermissions(user.permissions);
+    const effective = stored.length > 0 ? stored : defaultPermissionsForRole(user.role);
+
+    return res.json({
+      role: user.role,
+      permissions: effective,
+      is_stored: stored.length > 0
     });
+  } catch (err) {
+    console.error('Permissions error:', err);
+    return res.status(500).json({ message: 'Terjadi kesalahan server' });
   }
 });
 
