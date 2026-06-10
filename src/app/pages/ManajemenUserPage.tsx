@@ -68,11 +68,41 @@ interface UserRow {
   email: string;
   username: string;
   role: Role;
-  permissions: Permission[];
+  permissions: Permission[] | null;
   is_active: boolean;
   created_at?: string;
   last_login_at?: string | null;
 }
+
+const DEFAULT_ROLE_PERMISSIONS: Record<Role, Permission[]> = {
+  admin_sistem: [
+    "view_dashboard",
+    "view_reports",
+    "view_pembukuan",
+    "manage_transaksi",
+    "manage_aset",
+    "manage_inventaris",
+    "manage_rekonsiliasi",
+    "manage_perencanaan",
+    "approve_transaction",
+  ],
+  pimpinan: [
+    "view_dashboard",
+    "view_reports",
+    "view_pembukuan",
+    "approve_transaction",
+  ],
+  pengelola_internal: [
+    "view_dashboard",
+    "view_reports",
+    "view_pembukuan",
+    "manage_transaksi",
+    "manage_aset",
+    "manage_inventaris",
+    "manage_rekonsiliasi",
+    "manage_perencanaan",
+  ],
+};
 
 const ROLE_LABEL: Record<Role, string> = {
   admin_sistem: "Admin Sistem",
@@ -647,24 +677,53 @@ function PermissionModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [permissions, setPermissions] = useState<Permission[]>(
-    user.permissions || []
+  type PermMode = "default" | "custom";
+
+  const isAdmin = user.role === "admin_sistem";
+  const initialMode: PermMode =
+    isAdmin || user.permissions === null ? "default" : "custom";
+  const initialDefault = DEFAULT_ROLE_PERMISSIONS[user.role] ?? [];
+
+  const [mode, setMode] = useState<PermMode>(initialMode);
+  const [customPermissions, setCustomPermissions] = useState<Permission[]>(
+    initialMode === "custom" ? (user.permissions as Permission[]) : []
   );
   const [submitting, setSubmitting] = useState(false);
+  const [confirmEmpty, setConfirmEmpty] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const togglePerm = (p: Permission) => {
-    setPermissions((prev) =>
+  const displayedPermissions: Permission[] =
+    mode === "default" ? initialDefault : customPermissions;
+
+  const toggleCustomPerm = (p: Permission) => {
+    setCustomPermissions((prev) =>
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
     );
+    setConfirmEmpty(false);
+    setError(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const enterCustomMode = () => {
+    setMode("custom");
+    setCustomPermissions(initialDefault);
+    setConfirmEmpty(false);
+    setError(null);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (customPermissions.length === 0 && !confirmEmpty) {
+      setConfirmEmpty(true);
+      return;
+    }
+
     setSubmitting(true);
+    setError(null);
     try {
       const res = await apiFetch(`/admin/users/${user.id}/permissions`, {
         method: "PATCH",
-        body: JSON.stringify({ permissions }),
+        body: JSON.stringify({ permissions: customPermissions }),
       });
 
       if (!res.ok) {
@@ -672,16 +731,44 @@ function PermissionModal({
         throw new Error(errorData?.message || "Gagal mengupdate permissions");
       }
 
-      alert("Permission berhasil diupdate");
+      alert("Custom permission berhasil disimpan");
       onSuccess();
     } catch (err: any) {
-      alert("Gagal: " + (err?.message || "unknown"));
+      setError(err?.message || "Terjadi kesalahan");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const isAdmin = user.role === "admin_sistem";
+  const handleResetToDefault = async () => {
+    const ok = window.confirm(
+      "Reset permission user ini ke default role? Custom override akan dihapus dan user akan kembali memakai default role."
+    );
+    if (!ok) return;
+
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await apiFetch(`/admin/users/${user.id}/permissions`, {
+        method: "PATCH",
+        body: JSON.stringify({ permissions: null }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(
+          errorData?.message || "Gagal mereset permission ke default"
+        );
+      }
+
+      alert("Permission berhasil direset ke default role");
+      onSuccess();
+    } catch (err: any) {
+      setError(err?.message || "Terjadi kesalahan");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <ModalShell
@@ -689,55 +776,128 @@ function PermissionModal({
       onClose={onClose}
       width="max-w-lg"
     >
-      <div className="mb-3 text-sm">
+      <div className="mb-3 text-sm space-y-1">
         <div>
           <span className="text-gray-500">Role:</span>{" "}
           <span className="font-semibold">{ROLE_LABEL[user.role]}</span>
         </div>
-        {isAdmin && (
-          <div className="text-xs text-red-600 mt-1">
-            Catatan: Admin Sistem otomatis punya semua permission.
+
+        {isAdmin ? (
+          <div className="text-xs bg-yellow-50 border border-yellow-300 text-yellow-800 rounded p-2 mt-2">
+            <strong>Admin Sistem otomatis memiliki akses penuh.</strong>{" "}
+            Custom permission tidak berlaku untuk role ini. Anda tidak dapat
+            membatasi akses Admin Sistem melalui permission override.
+          </div>
+        ) : mode === "default" ? (
+          <div className="text-xs bg-blue-50 border border-blue-200 text-blue-800 rounded p-2 mt-2">
+            <strong>Mode: Default Role Permission.</strong> User memakai
+            permission bawaan role. Untuk mengubah, klik tombol{" "}
+            <em>Aktifkan Custom Permission</em> di bawah.
+          </div>
+        ) : (
+          <div className="text-xs bg-orange-50 border border-orange-200 text-orange-800 rounded p-2 mt-2">
+            <strong>Mode: Custom Permission Override.</strong> Permission user
+            tidak lagi memakai default role. Klik <em>Reset ke Default Role</em>{" "}
+            untuk mengembalikan.
           </div>
         )}
       </div>
-      <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="space-y-2 border border-gray-200 rounded-lg p-3 max-h-96 overflow-y-auto">
-          {ALL_PERMISSIONS.map((p) => (
-            <label
-              key={p.key}
-              className="flex items-start gap-2 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={isAdmin || permissions.includes(p.key)}
-                onChange={() => togglePerm(p.key)}
-                disabled={isAdmin}
-                className="mt-1"
-              />
-              <div>
-                <div className="text-sm font-medium text-gray-800">
-                  {p.label}
+
+      <form onSubmit={handleSave} className="space-y-3">
+        <div
+          className={`space-y-2 border rounded-lg p-3 max-h-96 overflow-y-auto ${
+            isAdmin || mode === "default"
+              ? "border-gray-200 bg-gray-50"
+              : "border-gray-200"
+          }`}
+        >
+          {ALL_PERMISSIONS.map((p) => {
+            const checked =
+              isAdmin || displayedPermissions.includes(p.key);
+            const disabled = isAdmin || mode === "default";
+            return (
+              <label
+                key={p.key}
+                className={`flex items-start gap-2 ${
+                  disabled ? "cursor-not-allowed opacity-90" : "cursor-pointer"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggleCustomPerm(p.key)}
+                  disabled={disabled}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="text-sm font-medium text-gray-800">
+                    {p.label}
+                  </div>
+                  <div className="text-xs text-gray-500">{p.desc}</div>
                 </div>
-                <div className="text-xs text-gray-500">{p.desc}</div>
-              </div>
-            </label>
-          ))}
+              </label>
+            );
+          })}
         </div>
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Batal
-          </button>
-          <button
-            type="submit"
-            disabled={submitting || isAdmin}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {submitting ? "Menyimpan..." : "Simpan Permission"}
-          </button>
+
+        {error && (
+          <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+            {error}
+          </div>
+        )}
+
+        {mode === "custom" && customPermissions.length === 0 && (
+          <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+            <strong>Peringatan:</strong> Custom permission kosong akan mengunci
+            user keluar dari semua fitur. Klik <em>Simpan</em> sekali lagi untuk
+            konfirmasi.
+          </div>
+        )}
+
+        <div className="flex justify-between items-center gap-2 pt-2">
+          <div>
+            {mode === "custom" && !isAdmin && (
+              <button
+                type="button"
+                onClick={handleResetToDefault}
+                disabled={submitting}
+                className="px-3 py-2 text-sm border border-red-200 text-red-700 rounded-lg hover:bg-red-50 disabled:opacity-50"
+              >
+                Reset ke Default Role
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            >
+              {isAdmin ? "Tutup" : "Batal"}
+            </button>
+            {isAdmin ? null : mode === "default" ? (
+              <button
+                type="button"
+                onClick={enterCustomMode}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Aktifkan Custom Permission
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {submitting
+                  ? "Menyimpan..."
+                  : confirmEmpty
+                  ? "Saya Yakin, Simpan"
+                  : "Simpan Custom Permission"}
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </ModalShell>
