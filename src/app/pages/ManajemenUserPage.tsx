@@ -112,7 +112,20 @@ export function ManajemenUserPage() {
   const loadUsers = async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<UserRow[]>("/admin/users");
+      const res = await apiFetch("/admin/users");
+
+      if (res.status === 403) {
+        alert("Akses ditolak. Hanya Admin Sistem yang bisa membuka halaman ini.");
+        navigate("/", { replace: true });
+        return;
+      }
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Gagal memuat data user");
+      }
+
+      const data = await res.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch (err: any) {
       console.error("Load users error:", err);
@@ -404,7 +417,7 @@ function CreateUserModal({
     e.preventDefault();
     setSubmitting(true);
     try {
-      await apiFetch("/admin/users", {
+      const res = await apiFetch("/admin/users", {
         method: "POST",
         body: JSON.stringify({
           nama_lengkap,
@@ -415,6 +428,12 @@ function CreateUserModal({
           permissions,
         }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Gagal membuat user");
+      }
+
       alert("User berhasil dibuat");
       onSuccess();
     } catch (err: any) {
@@ -537,10 +556,16 @@ function EditUserModal({
     e.preventDefault();
     setSubmitting(true);
     try {
-      await apiFetch(`/admin/users/${user.id}`, {
+      const res = await apiFetch(`/admin/users/${user.id}`, {
         method: "PATCH",
         body: JSON.stringify({ nama_lengkap, email, username, role }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Gagal mengupdate user");
+      }
+
       alert("User berhasil diupdate");
       onSuccess();
     } catch (err: any) {
@@ -637,10 +662,16 @@ function PermissionModal({
     e.preventDefault();
     setSubmitting(true);
     try {
-      await apiFetch(`/admin/users/${user.id}/permissions`, {
+      const res = await apiFetch(`/admin/users/${user.id}/permissions`, {
         method: "PATCH",
         body: JSON.stringify({ permissions }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Gagal mengupdate permissions");
+      }
+
       alert("Permission berhasil diupdate");
       onSuccess();
     } catch (err: any) {
@@ -733,10 +764,16 @@ function ResetPasswordModal({
     }
     setSubmitting(true);
     try {
-      await apiFetch(`/admin/users/${user.id}/reset-password`, {
+      const res = await apiFetch(`/admin/users/${user.id}/reset-password`, {
         method: "PATCH",
         body: JSON.stringify({ new_password: newPassword }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Gagal mereset password");
+      }
+
       alert(
         "Password berhasil direset. Harap sampaikan password baru ke user secara langsung."
       );
@@ -805,10 +842,16 @@ function ToggleActiveModal({
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await apiFetch(`/admin/users/${user.id}/status`, {
+      const res = await apiFetch(`/admin/users/${user.id}/status`, {
         method: "PATCH",
         body: JSON.stringify({ is_active: willActivate ? 1 : 0 }),
       });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.message || "Gagal memperbarui status user");
+      }
+
       alert(
         `User berhasil di${willActivate ? "aktifkan" : "nonaktifkan"}`
       );
