@@ -18,21 +18,35 @@ const toAuthUser = (user: any) => ({
 
 const publicRegisterEnabled = () => process.env.ALLOW_PUBLIC_REGISTER === 'true';
 
-const SUPER_ADMIN_PERMISSIONS = [
-  'input_pemasukan',
-  'input_pengeluaran',
-  'manage_assets',
-  'manage_inventory',
-  'manage_reconciliation',
-  'manage_users',
+const ADMIN_PERMISSIONS = [
+  'view_dashboard',
   'view_reports',
-  'approve_transactions'
+  'view_pembukuan',
+  'manage_transaksi',
+  'manage_aset',
+  'manage_inventaris',
+  'manage_rekonsiliasi',
+  'manage_perencanaan',
+  'approve_transaction',
+  'manage_users'
 ];
 
-const PEMIMPIN_PERMISSIONS = [
+const PIMPINAN_PERMISSIONS = [
+  'view_dashboard',
   'view_reports',
-  'approve_transactions',
-  'view_audit_log'
+  'view_pembukuan',
+  'approve_transaction'
+];
+
+const PENGELOLA_PERMISSIONS = [
+  'view_dashboard',
+  'view_reports',
+  'view_pembukuan',
+  'manage_transaksi',
+  'manage_aset',
+  'manage_inventaris',
+  'manage_rekonsiliasi',
+  'manage_perencanaan'
 ];
 
 function parsePermissions(raw: any): string[] {
@@ -53,12 +67,12 @@ function defaultPermissionsForRole(role: string): string[] {
   switch (role) {
     case 'admin':
     case 'admin_sistem':
-      return [...SUPER_ADMIN_PERMISSIONS];
+      return [...ADMIN_PERMISSIONS];
     case 'pimpinan':
-      return [...PEMIMPIN_PERMISSIONS];
+      return [...PIMPINAN_PERMISSIONS];
     case 'pengelola':
     case 'pengelola_internal':
-      return ['input_pemasukan', 'input_pengeluaran', 'manage_assets', 'manage_inventory', 'manage_reconciliation', 'view_reports'];
+      return [...PENGELOLA_PERMISSIONS];
     default:
       return [];
   }

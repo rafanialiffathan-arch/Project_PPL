@@ -2,7 +2,7 @@ import { Router } from 'express';
 import pool from '../config/db';
 import multer from 'multer';
 import path from 'path';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requirePermission } from '../middleware/auth';
 
 const router = Router();
 
@@ -45,7 +45,7 @@ const uploadRouter = Router();
 uploadRouter.use(authMiddleware as any);
 
 // POST /api/transaksi/upload — upload transaksi baru dengan bukti
-uploadRouter.post('/', uploadMiddleware, async (req: AuthRequest, res) => {
+uploadRouter.post('/', requirePermission('manage_transaksi') as any, uploadMiddleware, async (req: AuthRequest, res) => {
   const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
   const file = req.file;
 
@@ -84,7 +84,7 @@ uploadRouter.post('/', uploadMiddleware, async (req: AuthRequest, res) => {
 });
 
 // PUT /api/transaksi/upload/:id — update transaksi dengan bukti baru
-uploadRouter.put('/:id', uploadMiddleware, async (req: AuthRequest, res) => {
+uploadRouter.put('/:id', requirePermission('manage_transaksi') as any, uploadMiddleware, async (req: AuthRequest, res) => {
   const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
   const file = req.file;
 
@@ -106,8 +106,9 @@ uploadRouter.put('/:id', uploadMiddleware, async (req: AuthRequest, res) => {
       params.push(buktiPath);
     }
     
-    query += ' WHERE id = ? AND user_id = ?';
-    params.push(req.params.id, req.user!.id);
+    const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
+    query += ' WHERE id = ?' + (isAdmin ? '' : ' AND user_id = ?');
+    params.push(req.params.id, ...(isAdmin ? [] : [req.user!.id]));
 
     const [result] = await pool.query(query, params) as any;
 
@@ -150,9 +151,7 @@ router.get('/', async (req: AuthRequest, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT * FROM transaksi
-       WHERE user_id = ?
-       ORDER BY tanggal DESC, created_at DESC`,
-      [req.user!.id]
+       ORDER BY tanggal DESC, created_at DESC`
     );
     res.json(rows);
   } catch (err) {
@@ -161,7 +160,7 @@ router.get('/', async (req: AuthRequest, res) => {
 });
 
 // POST /api/transaksi — tambah transaksi baru (JSON)
-router.post('/', async (req: AuthRequest, res) => {
+router.post('/', requirePermission('manage_transaksi') as any, async (req: AuthRequest, res) => {
   const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
 
   if (!keterangan || !jumlah || !tipe || !tanggal) {
@@ -195,7 +194,7 @@ router.post('/', async (req: AuthRequest, res) => {
 });
 
 // PUT /api/transaksi/:id — update transaksi (JSON)
-router.put('/:id', async (req: AuthRequest, res) => {
+router.put('/:id', requirePermission('manage_transaksi') as any, async (req: AuthRequest, res) => {
   const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
 
   if (!keterangan || !jumlah || !tipe || !tanggal) {
@@ -204,13 +203,13 @@ router.put('/:id', async (req: AuthRequest, res) => {
   }
 
   try {
-    const [result] = await pool.query(
-      `UPDATE transaksi 
+    const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
+    const query = `UPDATE transaksi
        SET keterangan = ?, jumlah = ?, tipe = ?, kategori = ?, status = ?, tanggal = ?, nomor_invoice = ?
-       WHERE id = ? AND user_id = ?`,
-      [keterangan, jumlah, tipe, kategori || 'umum', status || 'pending', tanggal, 
-       nomor_invoice || null, req.params.id, req.user!.id]
-    ) as any;
+       WHERE id = ?${isAdmin ? '' : ' AND user_id = ?'}`;
+    const params = [keterangan, jumlah, tipe, kategori || 'umum', status || 'pending', tanggal,
+       nomor_invoice || null, req.params.id, ...(isAdmin ? [] : [req.user!.id])];
+    const [result] = await pool.query(query, params) as any;
 
     if (result.affectedRows === 0) {
       res.status(404).json({ message: 'Transaksi tidak ditemukan' });
@@ -236,12 +235,15 @@ router.put('/:id', async (req: AuthRequest, res) => {
 });
 
 // DELETE /api/transaksi/:id
-router.delete('/:id', async (req: AuthRequest, res) => {
+router.delete('/:id', requirePermission('manage_transaksi') as any, async (req: AuthRequest, res) => {
   try {
-    await pool.query(
-      'DELETE FROM transaksi WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user!.id]
-    );
+    const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
+    const query = 'DELETE FROM transaksi WHERE id = ?' + (isAdmin ? '' : ' AND user_id = ?');
+    const params = isAdmin ? [req.params.id] : [req.params.id, req.user!.id];
+    const [result] = await pool.query(query, params) as any;
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
+    }
     res.json({ message: 'Transaksi berhasil dihapus' });
   } catch (err) {
     res.status(500).json({ message: 'Gagal menghapus transaksi', error: err });

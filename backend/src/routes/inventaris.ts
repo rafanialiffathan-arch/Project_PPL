@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pool from '../config/db';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requirePermission } from '../middleware/auth';
 
 const router = Router();
 
@@ -14,9 +14,7 @@ router.get('/', async (req: AuthRequest, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT * FROM inventaris
-       WHERE user_id = ?
-       ORDER BY tanggal_masuk DESC, created_at DESC`,
-      [req.user!.id]
+       ORDER BY tanggal_masuk DESC, created_at DESC`
     );
     res.json(rows);
   } catch (err) {
@@ -31,8 +29,8 @@ router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const [rows]: any = await pool.query(
       `SELECT * FROM inventaris
-       WHERE id = ? AND user_id = ?`,
-      [req.params.id, req.user!.id]
+       WHERE id = ?`,
+      [req.params.id]
     );
 
     if (rows.length === 0) {
@@ -49,7 +47,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
 // ==========================
 // POST /api/inventaris — tambah inventaris baru
 // ==========================
-router.post('/', async (req: AuthRequest, res) => {
+router.post('/', requirePermission('manage_inventaris') as any, async (req: AuthRequest, res) => {
   const {
     nama_barang,
     kategori,
@@ -109,7 +107,7 @@ router.post('/', async (req: AuthRequest, res) => {
 // ==========================
 // PUT /api/inventaris/:id — update inventaris
 // ==========================
-router.put('/:id', async (req: AuthRequest, res) => {
+router.put('/:id', requirePermission('manage_inventaris') as any, async (req: AuthRequest, res) => {
   const {
     nama_barang,
     kategori,
@@ -132,12 +130,13 @@ router.put('/:id', async (req: AuthRequest, res) => {
   try {
     // Hitung total_nilai
     const total_nilai = Number(jumlah) * Number(harga_satuan);
+    const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
 
     const [result] = await pool.query(
-      `UPDATE inventaris 
-       SET nama_barang = ?, kategori = ?, jumlah = ?, satuan = ?, 
+      `UPDATE inventaris
+       SET nama_barang = ?, kategori = ?, jumlah = ?, satuan = ?,
            harga_satuan = ?, total_nilai = ?, tanggal_masuk = ?, kondisi = ?, status = ?
-       WHERE id = ? AND user_id = ?`,
+       WHERE id = ?${isAdmin ? '' : ' AND user_id = ?'}`,
       [
         nama_barang,
         kategori || 'lainnya',
@@ -149,7 +148,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
         kondisi || 'baik',
         status || 'tersedia',
         req.params.id,
-        req.user!.id
+        ...(isAdmin ? [] : [req.user!.id])
       ]
     ) as any;
 
@@ -176,16 +175,16 @@ router.put('/:id', async (req: AuthRequest, res) => {
 // ==========================
 // DELETE /api/inventaris/:id
 // ==========================
-router.delete('/:id', async (req: AuthRequest, res) => {
+router.delete('/:id', requirePermission('manage_inventaris') as any, async (req: AuthRequest, res) => {
   try {
+    const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
     const [result] = await pool.query(
-      'DELETE FROM inventaris WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user!.id]
+      'DELETE FROM inventaris WHERE id = ?' + (isAdmin ? '' : ' AND user_id = ?'),
+      isAdmin ? [req.params.id] : [req.params.id, req.user!.id]
     ) as any;
 
     if (result.affectedRows === 0) {
-      res.status(404).json({ message: 'Inventaris tidak ditemukan' });
-      return;
+      return res.status(404).json({ message: 'Inventaris tidak ditemukan' });
     }
 
     res.json({ message: 'Inventaris berhasil dihapus' });

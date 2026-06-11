@@ -1,6 +1,6 @@
-import { Router } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import pool from '../config/db';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requirePermission } from '../middleware/auth';
 
 const router = Router();
 router.use(authMiddleware as any);
@@ -9,8 +9,7 @@ router.use(authMiddleware as any);
 router.get('/', async (req: AuthRequest, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM perencanaan WHERE user_id = ? ORDER BY created_at DESC',
-      [req.user!.id]
+      'SELECT * FROM perencanaan ORDER BY created_at DESC'
     );
     res.json(rows);
   } catch (err) {
@@ -19,7 +18,7 @@ router.get('/', async (req: AuthRequest, res) => {
 });
 
 // POST tambah perencanaan baru
-router.post('/', async (req: AuthRequest, res) => {
+router.post('/', requirePermission('manage_perencanaan'), async (req: AuthRequest, res) => {
   const { nama_plan, target, deadline } = req.body;
   try {
     const [result] = await pool.query(

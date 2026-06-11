@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import pool from '../config/db';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requirePermission } from '../middleware/auth';
 
 const router = Router();
 
 // Semua endpoint pakai auth middleware
 router.use(authMiddleware as any);
+
 
 // ==========================
 // GET /api/rekonsiliasi - Ambil semua rekonsiliasi
@@ -13,13 +14,11 @@ router.use(authMiddleware as any);
 router.get('/', async (req: AuthRequest, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, nama_bank, nomor_rekening, saldo_buku, saldo_bank, 
-              (saldo_bank - saldo_buku) as selisih, 
-              tanggal_rekonsiliasi, status, catatan, created_at, updated_at 
-       FROM rekonsiliasi_bank 
-       WHERE user_id = ? 
+      `SELECT id, nama_bank, nomor_rekening, saldo_buku, saldo_bank,
+              (saldo_bank - saldo_buku) as selisih,
+              tanggal_rekonsiliasi, status, catatan, created_at, updated_at
+       FROM rekonsiliasi_bank
        ORDER BY tanggal_rekonsiliasi DESC, created_at DESC`,
-      [req.user!.id]
     );
     res.json(rows);
   } catch (err) {
@@ -34,12 +33,12 @@ router.get('/', async (req: AuthRequest, res) => {
 router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const [rows]: any = await pool.query(
-      `SELECT id, nama_bank, nomor_rekening, saldo_buku, saldo_bank, 
-              (saldo_bank - saldo_buku) as selisih, 
-              tanggal_rekonsiliasi, status, catatan, created_at, updated_at 
-       FROM rekonsiliasi_bank 
-       WHERE id = ? AND user_id = ?`,
-      [req.params.id, req.user!.id]
+      `SELECT id, nama_bank, nomor_rekening, saldo_buku, saldo_bank,
+              (saldo_bank - saldo_buku) as selisih,
+              tanggal_rekonsiliasi, status, catatan, created_at, updated_at
+       FROM rekonsiliasi_bank
+       WHERE id = ?`,
+      [req.params.id]
     );
 
     if (rows.length === 0) {
@@ -56,7 +55,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
 // ==========================
 // POST /api/rekonsiliasi - Tambah rekonsiliasi baru
 // ==========================
-router.post('/', async (req: AuthRequest, res) => {
+router.post('/', requirePermission('manage_rekonsiliasi'), async (req: AuthRequest, res) => {
   const { nama_bank, nomor_rekening, saldo_buku, saldo_bank, tanggal_rekonsiliasi, status, catatan } = req.body;
 
   // Validasi required fields
@@ -97,13 +96,15 @@ router.post('/', async (req: AuthRequest, res) => {
 // ==========================
 // PUT /api/rekonsiliasi/:id - Update rekonsiliasi
 // ==========================
-router.put('/:id', async (req: AuthRequest, res) => {
+router.put('/:id', requirePermission('manage_rekonsiliasi'), async (req: AuthRequest, res) => {
   const { nama_bank, nomor_rekening, saldo_buku, saldo_bank, tanggal_rekonsiliasi, status, catatan } = req.body;
+
+  const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
 
   // Cek ownership
   const [existing]: any = await pool.query(
-    'SELECT id FROM rekonsiliasi_bank WHERE id = ? AND user_id = ?',
-    [req.params.id, req.user!.id]
+    'SELECT id FROM rekonsiliasi_bank WHERE id = ?' + (isAdmin ? '' : ' AND user_id = ?'),
+    isAdmin ? [req.params.id] : [req.params.id, req.user!.id]
   );
 
   if (existing.length === 0) {
@@ -121,11 +122,11 @@ router.put('/:id', async (req: AuthRequest, res) => {
     }
 
     await pool.query(
-      `UPDATE rekonsiliasi_bank 
-       SET nama_bank = ?, nomor_rekening = ?, saldo_buku = ?, saldo_bank = ?, 
+      `UPDATE rekonsiliasi_bank
+       SET nama_bank = ?, nomor_rekening = ?, saldo_buku = ?, saldo_bank = ?,
            tanggal_rekonsiliasi = ?, status = ?, catatan = ?
-       WHERE id = ? AND user_id = ?`,
-      [nama_bank, nomor_rekening, saldo_buku, saldo_bank, tanggal_rekonsiliasi, finalStatus, catatan || null, req.params.id, req.user!.id]
+       WHERE id = ?${isAdmin ? '' : ' AND user_id = ?'}`,
+      [nama_bank, nomor_rekening, saldo_buku, saldo_bank, tanggal_rekonsiliasi, finalStatus, catatan || null, req.params.id, ...(isAdmin ? [] : [req.user!.id])]
     );
 
     res.json({
@@ -142,11 +143,13 @@ router.put('/:id', async (req: AuthRequest, res) => {
 // ==========================
 // DELETE /api/rekonsiliasi/:id - Hapus rekonsiliasi
 // ==========================
-router.delete('/:id', async (req: AuthRequest, res) => {
+router.delete('/:id', requirePermission('manage_rekonsiliasi'), async (req: AuthRequest, res) => {
+  const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
+
   // Cek ownership
   const [existing]: any = await pool.query(
-    'SELECT id, nama_bank FROM rekonsiliasi_bank WHERE id = ? AND user_id = ?',
-    [req.params.id, req.user!.id]
+    'SELECT id, nama_bank FROM rekonsiliasi_bank WHERE id = ?' + (isAdmin ? '' : ' AND user_id = ?'),
+    isAdmin ? [req.params.id] : [req.params.id, req.user!.id]
   );
 
   if (existing.length === 0) {
@@ -155,8 +158,8 @@ router.delete('/:id', async (req: AuthRequest, res) => {
 
   try {
     await pool.query(
-      'DELETE FROM rekonsiliasi_bank WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user!.id]
+      'DELETE FROM rekonsiliasi_bank WHERE id = ?' + (isAdmin ? '' : ' AND user_id = ?'),
+      isAdmin ? [req.params.id] : [req.params.id, req.user!.id]
     );
 
     res.json({ message: `Rekonsiliasi bank "${existing[0].nama_bank}" berhasil dihapus` });

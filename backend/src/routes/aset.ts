@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import pool from '../config/db';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authMiddleware, AuthRequest, requirePermission } from '../middleware/auth';
 
 const router = Router();
 
@@ -13,12 +13,10 @@ router.use(authMiddleware as any);
 router.get('/', async (req: AuthRequest, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT *, 
+      `SELECT *,
         (nilai_aset - COALESCE(akumulasi_depresiasi, 0)) AS nilai_buku
        FROM aset_tetap
-       WHERE user_id = ?
-       ORDER BY tanggal_perolehan DESC, created_at DESC`,
-      [req.user!.id]
+       ORDER BY tanggal_perolehan DESC, created_at DESC`
     );
     res.json(rows);
   } catch (err) {
@@ -32,11 +30,11 @@ router.get('/', async (req: AuthRequest, res) => {
 router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const [rows]: any = await pool.query(
-      `SELECT *, 
+      `SELECT *,
         (nilai_aset - COALESCE(akumulasi_depresiasi, 0)) AS nilai_buku
        FROM aset_tetap
-       WHERE id = ? AND user_id = ?`,
-      [req.params.id, req.user!.id]
+       WHERE id = ?`,
+      [req.params.id]
     );
 
     if (rows.length === 0) {
@@ -53,7 +51,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
 // ==========================
 // POST /api/aset — tambah aset baru
 // ==========================
-router.post('/', async (req: AuthRequest, res) => {
+router.post('/', requirePermission('manage_aset') as any, async (req: AuthRequest, res) => {
   const { nama_aset, kategori, nilai_aset, tanggal_perolehan, umur_ekonomis, status } = req.body;
 
   // Validasi wajib
@@ -100,7 +98,7 @@ router.post('/', async (req: AuthRequest, res) => {
 // ==========================
 // PUT /api/aset/:id — update aset
 // ==========================
-router.put('/:id', async (req: AuthRequest, res) => {
+router.put('/:id', requirePermission('manage_aset') as any, async (req: AuthRequest, res) => {
   const { nama_aset, kategori, nilai_aset, tanggal_perolehan, umur_ekonomis, status, akumulasi_depresiasi } = req.body;
 
   // Validasi wajib
@@ -112,11 +110,12 @@ router.put('/:id', async (req: AuthRequest, res) => {
   }
 
   try {
+    const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
     const [result] = await pool.query(
-      `UPDATE aset_tetap 
-       SET nama_aset = ?, kategori = ?, nilai_aset = ?, 
+      `UPDATE aset_tetap
+       SET nama_aset = ?, kategori = ?, nilai_aset = ?,
            tanggal_perolehan = ?, umur_ekonomis = ?, status = ?, akumulasi_depresiasi = ?
-       WHERE id = ? AND user_id = ?`,
+       WHERE id = ?${isAdmin ? '' : ' AND user_id = ?'}`,
       [
         nama_aset,
         kategori || 'lainnya',
@@ -126,7 +125,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
         status || 'aktif',
         akumulasi_depresiasi || 0,
         req.params.id,
-        req.user!.id
+        ...(isAdmin ? [] : [req.user!.id])
       ]
     ) as any;
 
@@ -154,16 +153,16 @@ router.put('/:id', async (req: AuthRequest, res) => {
 // ==========================
 // DELETE /api/aset/:id
 // ==========================
-router.delete('/:id', async (req: AuthRequest, res) => {
+router.delete('/:id', requirePermission('manage_aset') as any, async (req: AuthRequest, res) => {
   try {
+    const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
     const [result] = await pool.query(
-      'DELETE FROM aset_tetap WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user!.id]
+      'DELETE FROM aset_tetap WHERE id = ?' + (isAdmin ? '' : ' AND user_id = ?'),
+      isAdmin ? [req.params.id] : [req.params.id, req.user!.id]
     ) as any;
 
     if (result.affectedRows === 0) {
-      res.status(404).json({ message: 'Aset tidak ditemukan' });
-      return;
+      return res.status(404).json({ message: 'Aset tidak ditemukan' });
     }
 
     res.json({ message: 'Aset tetap berhasil dihapus' });
