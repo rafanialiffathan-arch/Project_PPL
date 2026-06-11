@@ -46,6 +46,16 @@ export const clearAuth = () => {
   removeStoredUser();
 };
 
+export const hasPermission = (
+  user: AuthUser | null | undefined,
+  ...codes: string[]
+): boolean => {
+  if (!user) return false;
+  if (user.role === "admin_sistem") return true;
+  if (!user.permissions || user.permissions.length === 0) return false;
+  return codes.every((code) => user.permissions?.includes(code));
+};
+
 // Helper fetch dengan Authorization header otomatis
 export async function apiFetch(
   endpoint: string,

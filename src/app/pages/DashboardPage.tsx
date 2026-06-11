@@ -17,7 +17,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, hasPermission, getStoredUser } from "../../lib/api";
 
 // ==========================
 // TYPES
@@ -297,20 +297,24 @@ export function DashboardPage() {
           </p>
         </div>
         <div className="flex gap-3">
-          <button
-            onClick={() => handleAddTransaction("pemasukan")}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-          >
-            <span className="text-xl leading-none">+</span>
-            Tambah Pemasukan
-          </button>
-          <button
-            onClick={() => handleAddTransaction("pengeluaran")}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-          >
-            <span className="text-xl leading-none">−</span>
-            Tambah Pengeluaran
-          </button>
+          {hasPermission(getStoredUser(), "manage_transaksi") && (
+            <>
+              <button
+                onClick={() => handleAddTransaction("pemasukan")}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <span className="text-xl leading-none">+</span>
+                Tambah Pemasukan
+              </button>
+              <button
+                onClick={() => handleAddTransaction("pengeluaran")}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+              >
+                <span className="text-xl leading-none">−</span>
+                Tambah Pengeluaran
+              </button>
+            </>
+          )}
           <button
             onClick={handleExport}
             className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2"

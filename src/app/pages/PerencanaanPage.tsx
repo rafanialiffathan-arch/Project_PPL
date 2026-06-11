@@ -1,6 +1,6 @@
 import { Calendar, FileText, Loader2, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, getStoredUser, hasPermission } from "../../lib/api";
 
 type Plan = {
   id: number;
@@ -113,6 +113,8 @@ export function PerencanaanPage() {
     );
   }
 
+  const canCreatePerencanaan = hasPermission(getStoredUser(), "manage_perencanaan");
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -122,13 +124,15 @@ export function PerencanaanPage() {
             Rencana keuangan yang tersimpan di database
           </p>
         </div>
-        <button
-          onClick={() => setShowForm((value) => !value)}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-        >
-          <Plus className="w-4 h-4" />
-          Tambah Rencana
-        </button>
+        {canCreatePerencanaan && (
+          <button
+            onClick={() => setShowForm((value) => !value)}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+          >
+            <Plus className="w-4 h-4" />
+            Tambah Rencana
+          </button>
+        )}
       </div>
 
       {showForm && (

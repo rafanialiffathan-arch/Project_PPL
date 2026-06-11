@@ -16,6 +16,7 @@ import {
   clearAuth,
   getStoredUser,
   getToken,
+  hasPermission,
   saveUser,
 } from "../../lib/api";
 
@@ -97,9 +98,9 @@ export function DashboardLayout() {
   const navItems = useMemo(
     () => [
       ...baseNavigation,
-      ...(currentUser?.role === "admin_sistem" ? adminNavigation : []),
+      ...(hasPermission(currentUser, "manage_users") ? adminNavigation : []),
     ],
-    [currentUser?.role]
+    [currentUser]
   );
 
   return (

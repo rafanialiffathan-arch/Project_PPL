@@ -4,7 +4,7 @@ import { TransactionModal } from "../components/TransactionModal.tsx";
 import { AsetModal } from "../components/AsetModal.tsx";
 import { InventarisModal } from "../components/InventarisModal.tsx";
 import { RekonsiliasiModal } from "../components/RekonsiliasiModal.tsx";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, getStoredUser, hasPermission } from "../../lib/api";
 
 type TabType = "pemasukan" | "pengeluaran" | "kas" | "aset" | "inventaris" | "rekonsiliasi";
 
@@ -90,6 +90,13 @@ export function PembukuanPage() {
   const [inventarisLoading, setInventarisLoading] = useState(false);
   const [selectedInventaris, setSelectedInventaris] = useState<any | null>(null);
   const [isInventarisModalOpen, setIsInventarisModalOpen] = useState(false);
+
+  // Permission checks
+  const currentUser = getStoredUser();
+  const canManageTransaksi = hasPermission(currentUser, "manage_transaksi");
+  const canManageAset = hasPermission(currentUser, "manage_aset");
+  const canManageInventaris = hasPermission(currentUser, "manage_inventaris");
+  const canManage = hasPermission(currentUser, "manage_rekonsiliasi");
 
   const fetchTransaksi = async () => {
     setIsLoading(true);
@@ -196,25 +203,6 @@ export function PembukuanPage() {
     fetchAset();
     fetchInventaris();
   }, []);
-
-  const handleAddData = () => {
-    if (activeTab === "aset") {
-      // Buka AsetModal untuk tab aset
-      setSelectedAset(null);
-      setIsAsetModalOpen(true);
-    } else if (activeTab === "inventaris") {
-      // Buka InventarisModal untuk tab inventaris
-      setSelectedInventaris(null);
-      setIsInventarisModalOpen(true);
-    } else if (activeTab === "rekonsiliasi") {
-      // Buka RekonsiliasiModal untuk tab rekonsiliasi bank via RekonsiliasiContent
-      // Trigger the modal via a different mechanism - we'll add this
-    } else {
-      // Buka TransactionModal untuk tab lainnya
-      setSelectedTransaction(null);
-      setIsModalOpen(true);
-    }
-  };
 
   const handleEdit = (transaction: Transaction) => {
     setSelectedTransaction(transaction);
@@ -415,22 +403,42 @@ export function PembukuanPage() {
               Export
             </button>
           )}
-          <button
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
-              activeTab === "kas" || activeTab === "rekonsiliasi"
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-gray-900 text-white hover:bg-gray-800"
-            }`}
-            onClick={handleAddData}
-            disabled={activeTab === "kas" || activeTab === "rekonsiliasi"}
-          >
-            <Plus className="w-4 h-4" />
-            {activeTab === "aset"
-              ? "Tambah Aset"
-              : activeTab === "inventaris"
-              ? "Tambah Inventaris"
-              : "Tambah Transaksi"}
-          </button>
+          {(activeTab === "pemasukan" || activeTab === "pengeluaran" || activeTab === "kas") && canManageTransaksi && (
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              onClick={() => {
+                setSelectedTransaction(null);
+                setIsModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Transaksi
+            </button>
+          )}
+          {activeTab === "aset" && canManageAset && (
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              onClick={() => {
+                setSelectedAset(null);
+                setIsAsetModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Aset
+            </button>
+          )}
+          {activeTab === "inventaris" && canManageInventaris && (
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              onClick={() => {
+                setSelectedInventaris(null);
+                setIsInventarisModalOpen(true);
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Tambah Inventaris
+            </button>
+          )}
         </div>
       </div>
 
@@ -630,8 +638,8 @@ export function PembukuanPage() {
 
         {/* Tab Content */}
         <div className="p-6">
-          {activeTab === "pemasukan" && <PemasukanContent transactions={filteredTransactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} onEdit={handleEdit} onDelete={handleDelete} />}
-          {activeTab === "pengeluaran" && <PengeluaranContent transactions={filteredTransactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} onEdit={handleEdit} onDelete={handleDelete} />}
+          {activeTab === "pemasukan" && <PemasukanContent transactions={filteredTransactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} canEdit={canManageTransaksi} canDelete={canManageTransaksi} onEdit={handleEdit} onDelete={handleDelete} />}
+          {activeTab === "pengeluaran" && <PengeluaranContent transactions={filteredTransactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} canEdit={canManageTransaksi} canDelete={canManageTransaksi} onEdit={handleEdit} onDelete={handleDelete} />}
           {activeTab === "kas" && (
             <KasContent
               transactions={filteredTransactions}
@@ -642,6 +650,8 @@ export function PembukuanPage() {
             <AsetContent
               asetList={asetList}
               isLoading={asetLoading}
+              canEdit={canManageAset}
+              canDelete={canManageAset}
               onEdit={handleEditAset}
               onDelete={handleDeleteAset}
             />
@@ -650,11 +660,13 @@ export function PembukuanPage() {
             <InventarisContent
               inventarisList={inventarisList}
               isLoading={inventarisLoading}
+              canEdit={canManageInventaris}
+              canDelete={canManageInventaris}
               onEdit={handleEditInventaris}
               onDelete={handleDeleteInventaris}
             />
           )}
-          {activeTab === "rekonsiliasi" && <RekonsiliasiContent />}
+          {activeTab === "rekonsiliasi" && <RekonsiliasiContent canManage={canManage} />}
         </div>
       </div>
 
@@ -704,11 +716,13 @@ export function PembukuanPage() {
 type Props = {
   transactions: Transaction[];
   isLoading: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
 };
 
-function PemasukanContent({ transactions, isLoading, onEdit, onDelete }: Props) {
+function PemasukanContent({ transactions, isLoading, canEdit, canDelete, onEdit, onDelete }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -760,12 +774,16 @@ function PemasukanContent({ transactions, isLoading, onEdit, onDelete }: Props) 
                 Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
               </td>
               <td className="py-4 text-center">
-                <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canEdit && (
+                  <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -775,7 +793,7 @@ function PemasukanContent({ transactions, isLoading, onEdit, onDelete }: Props) 
   );
 }
 
-function PengeluaranContent({ transactions, isLoading, onEdit, onDelete }: Props) {
+function PengeluaranContent({ transactions, isLoading, canEdit, canDelete, onEdit, onDelete }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -827,12 +845,16 @@ function PengeluaranContent({ transactions, isLoading, onEdit, onDelete }: Props
                 Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
               </td>
               <td className="py-4 text-center">
-                <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canEdit && (
+                  <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -962,11 +984,13 @@ function KasContent({ transactions, isLoading }: KasProps) {
 type AsetProps = {
   asetList: Aset[];
   isLoading: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
   onEdit: (aset: Aset) => void;
   onDelete: (aset: Aset) => void;
 };
 
-function AsetContent({ asetList, isLoading, onEdit, onDelete }: AsetProps) {
+function AsetContent({ asetList, isLoading, canEdit, canDelete, onEdit, onDelete }: AsetProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1043,12 +1067,16 @@ function AsetContent({ asetList, isLoading, onEdit, onDelete }: AsetProps) {
                 </span>
               </td>
               <td className="py-4 text-center">
-                <button onClick={() => onEdit(aset)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(aset)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canEdit && (
+                  <button onClick={() => onEdit(aset)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => onDelete(aset)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -1062,11 +1090,13 @@ function AsetContent({ asetList, isLoading, onEdit, onDelete }: AsetProps) {
 type InventarisProps = {
   inventarisList: any[];
   isLoading: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
   onEdit: (inventaris: any) => void;
   onDelete: (inventaris: any) => void;
 };
 
-function InventarisContent({ inventarisList, isLoading, onEdit, onDelete }: InventarisProps) {
+function InventarisContent({ inventarisList, isLoading, canEdit, canDelete, onEdit, onDelete }: InventarisProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1145,12 +1175,16 @@ function InventarisContent({ inventarisList, isLoading, onEdit, onDelete }: Inve
                 </span>
               </td>
               <td className="py-4 text-center">
-                <button onClick={() => onEdit(item)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                  <Pencil className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDelete(item)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canEdit && (
+                  <button onClick={() => onEdit(item)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => onDelete(item)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -1161,11 +1195,12 @@ function InventarisContent({ inventarisList, isLoading, onEdit, onDelete }: Inve
 }
 
 type RekonsiliasiProps = {
+  canManage: boolean;
   onEdit?: (rekonsiliasi: any) => void;
   onDelete?: (rekonsiliasi: any) => void;
 };
 
-function RekonsiliasiContent({ onEdit, onDelete }: RekonsiliasiProps) {
+function RekonsiliasiContent({ canManage, onEdit, onDelete }: RekonsiliasiProps) {
   const [rekonsiliasiList, setRekonsiliasiList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1260,13 +1295,15 @@ function RekonsiliasiContent({ onEdit, onDelete }: RekonsiliasiProps) {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => { setSelectedRekonsiliasi(null); setIsModalOpen(true); }}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
-            >
-              <Plus className="w-4 h-4" />
-              Tambah Rekonsiliasi
-            </button>
+            {canManage && (
+              <button
+                onClick={() => { setSelectedRekonsiliasi(null); setIsModalOpen(true); }}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800"
+              >
+                <Plus className="w-4 h-4" />
+                Tambah Rekonsiliasi
+              </button>
+            )}
           </div>
 
       {/* Table */}
@@ -1338,12 +1375,16 @@ function RekonsiliasiContent({ onEdit, onDelete }: RekonsiliasiProps) {
                       </span>
                     </td>
                     <td className="py-4 text-center">
-                      <button onClick={() => handleEditRekonsiliasi(item)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => handleDeleteRekonsiliasi(item)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {canManage && (
+                        <button onClick={() => handleEditRekonsiliasi(item)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                      )}
+                      {canManage && (
+                        <button onClick={() => handleDeleteRekonsiliasi(item)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
