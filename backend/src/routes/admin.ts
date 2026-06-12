@@ -20,7 +20,41 @@ const PERMISSION_WHITELIST = [
   'manage_rekonsiliasi',
   'manage_perencanaan',
   'approve_transaction',
+  'manage_users',
 ] as const;
+
+const PIMPINAN_FORBIDDEN = new Set([
+  'manage_transaksi', 'manage_aset', 'manage_inventaris',
+  'manage_rekonsiliasi', 'manage_perencanaan', 'manage_users',
+]);
+const PENGELOLA_FORBIDDEN = new Set(['approve_transaction', 'manage_users']);
+
+function validateRolePermissions(
+  role: string,
+  permissions: string[]
+): { valid: boolean; message?: string } {
+  if (permissions.length === 0) {
+    return { valid: false, message: 'Permission kosong tidak diizinkan' };
+  }
+  for (const p of permissions) {
+    if (!PERMISSION_WHITELIST.includes(p as any)) {
+      return { valid: false, message: `Permission tidak dikenal: ${p}` };
+    }
+  }
+  if (role === 'pimpinan') {
+    const violating = permissions.filter((p) => PIMPINAN_FORBIDDEN.has(p));
+    if (violating.length > 0) {
+      return { valid: false, message: `Pimpinan tidak diizinkan memiliki permission: ${violating.join(', ')}` };
+    }
+  }
+  if (role === 'pengelola_internal') {
+    const violating = permissions.filter((p) => PENGELOLA_FORBIDDEN.has(p));
+    if (violating.length > 0) {
+      return { valid: false, message: `Pengelola Internal tidak diizinkan memiliki permission: ${violating.join(', ')}` };
+    }
+  }
+  return { valid: true };
+}
 
 const SAFE_USER_FIELDS =
   'id, nama_lengkap, email, username, role, permissions, is_active, created_by, created_at, updated_at';
@@ -151,12 +185,9 @@ router.post('/users', async (req: AuthRequest, res) => {
     if (!Array.isArray(permissions)) {
       return res.status(400).json({ message: 'permissions harus berupa array atau null' });
     }
-    for (const p of permissions) {
-      if (typeof p !== 'string' || !(PERMISSION_WHITELIST as readonly string[]).includes(p)) {
-        return res.status(400).json({
-          message: `Permission tidak dikenal: ${p}`,
-        });
-      }
+    const permValidation = validateRolePermissions(role, permissions);
+    if (!permValidation.valid) {
+      return res.status(400).json({ message: permValidation.message });
     }
   } else if (permissions === undefined) {
     permissions = null;
@@ -379,26 +410,31 @@ router.patch('/users/:id/permissions', async (req, res) => {
 
   const { permissions } = req.body || {};
 
+  let userRole: string;
+
+  try {
+    const [exists]: any = await pool.query('SELECT role FROM users WHERE id = ?', [id]);
+    if (exists.length === 0) {
+      return res.status(404).json({ message: 'User tidak ditemukan' });
+    }
+    userRole = exists[0].role;
+  } catch (err) {
+    console.error('Admin PATCH permissions lookup error:', err);
+    return res.status(500).json({ message: 'Terjadi kesalahan server' });
+  }
+
   if (permissions === null) {
     // valid: reset to default role_permissions
   } else if (!Array.isArray(permissions)) {
     return res.status(400).json({ message: 'permissions harus berupa array atau null' });
   } else {
-    for (const p of permissions) {
-      if (typeof p !== 'string' || !(PERMISSION_WHITELIST as readonly string[]).includes(p)) {
-        return res.status(400).json({
-          message: `Permission tidak dikenal: ${p}`,
-        });
-      }
+    const permValidation = validateRolePermissions(userRole, permissions);
+    if (!permValidation.valid) {
+      return res.status(400).json({ message: permValidation.message });
     }
   }
 
   try {
-    const [exists]: any = await pool.query('SELECT id FROM users WHERE id = ?', [id]);
-    if (exists.length === 0) {
-      return res.status(404).json({ message: 'User tidak ditemukan' });
-    }
-
     const valueToStore = permissions === null ? null : JSON.stringify(permissions);
     await pool.query('UPDATE users SET permissions = ? WHERE id = ?', [valueToStore, id]);
 

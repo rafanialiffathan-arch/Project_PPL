@@ -12,7 +12,8 @@ type Permission =
   | "manage_inventaris"
   | "manage_rekonsiliasi"
   | "manage_perencanaan"
-  | "approve_transaction";
+  | "approve_transaction"
+  | "manage_users";
 
 const ALL_PERMISSIONS: { key: Permission; label: string; desc: string }[] = [
   {
@@ -60,6 +61,11 @@ const ALL_PERMISSIONS: { key: Permission; label: string; desc: string }[] = [
     label: "Approve Transaksi",
     desc: "Menyetujui/menolak transaksi (khusus Pimpinan)",
   },
+  {
+    key: "manage_users",
+    label: "Kelola User",
+    desc: "Kelola akun, role, dan permission user (khusus Admin Sistem)",
+  },
 ];
 
 interface UserRow {
@@ -103,6 +109,25 @@ const DEFAULT_ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_perencanaan",
   ],
 };
+
+const ROLE_VALID_PERMISSIONS: Record<Role, Permission[]> = {
+  admin_sistem: ALL_PERMISSIONS.map((p) => p.key),
+  pimpinan: ["view_dashboard", "view_reports", "view_pembukuan", "approve_transaction"],
+  pengelola_internal: [
+    "view_dashboard",
+    "view_reports",
+    "view_pembukuan",
+    "manage_transaksi",
+    "manage_aset",
+    "manage_inventaris",
+    "manage_rekonsiliasi",
+    "manage_perencanaan",
+  ],
+};
+
+function isValidPermissionForRole(role: Role, perm: Permission): boolean {
+  return ROLE_VALID_PERMISSIONS[role].includes(perm);
+}
 
 const ROLE_LABEL: Record<Role, string> = {
   admin_sistem: "Admin Sistem",
@@ -437,6 +462,10 @@ function CreateUserModal({
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    setPermissions(ROLE_VALID_PERMISSIONS[role]);
+  }, [role]);
+
   const togglePerm = (p: Permission) => {
     setPermissions((prev) =>
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
@@ -525,7 +554,9 @@ function CreateUserModal({
         </Field>
         <Field label="Permissions">
           <div className="space-y-2 border border-gray-200 rounded-lg p-3 max-h-48 overflow-y-auto">
-            {ALL_PERMISSIONS.map((p) => (
+            {ALL_PERMISSIONS.filter((p) =>
+              isValidPermissionForRole(role, p.key)
+            ).map((p) => (
               <label
                 key={p.key}
                 className="flex items-start gap-2 cursor-pointer"
@@ -811,7 +842,9 @@ function PermissionModal({
               : "border-gray-200"
           }`}
         >
-          {ALL_PERMISSIONS.map((p) => {
+          {ALL_PERMISSIONS.filter((p) =>
+            isValidPermissionForRole(user.role, p.key)
+          ).map((p) => {
             const checked =
               isAdmin || displayedPermissions.includes(p.key);
             const disabled = isAdmin || mode === "default";
