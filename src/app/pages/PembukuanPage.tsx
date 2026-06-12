@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar, Trash2, Pencil } from "lucide-react";
+import { Plus, Search, Filter, Download, CheckCircle, Clock, Calendar, Trash2, Pencil, X } from "lucide-react";
 import { TransactionModal } from "../components/TransactionModal.tsx";
 import { AsetModal } from "../components/AsetModal.tsx";
 import { InventarisModal } from "../components/InventarisModal.tsx";
@@ -62,6 +62,29 @@ const toInputDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const renderStatusBadge = (status: string) => {
+  const s = (status || "").toLowerCase();
+  if (s === "approved" || s === "valid") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-green-50 text-green-700">
+        <CheckCircle className="w-3 h-3" /> Approved
+      </span>
+    );
+  }
+  if (s === "rejected") {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-red-50 text-red-700">
+        <X className="w-3 h-3" /> Rejected
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs bg-yellow-50 text-yellow-700">
+      <Clock className="w-3 h-3" /> Pending
+    </span>
+  );
+};
+
 export function PembukuanPage() {
   const [activeTab, setActiveTab] = useState<TabType>("pemasukan");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -97,6 +120,13 @@ export function PembukuanPage() {
   const canManageAset = hasPermission(currentUser, "manage_aset");
   const canManageInventaris = hasPermission(currentUser, "manage_inventaris");
   const canManage = hasPermission(currentUser, "manage_rekonsiliasi");
+  const canApprove = hasPermission(currentUser, "approve_transaction");
+
+  // Reject modal state
+  const [rejectTarget, setRejectTarget] = useState<Transaction | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectError, setRejectError] = useState("");
+  const [rejecting, setRejecting] = useState(false);
 
   const fetchTransaksi = async () => {
     setIsLoading(true);
@@ -227,6 +257,61 @@ export function PembukuanPage() {
       }
     } catch {
       alert("Koneksi ke server gagal. Pastikan backend menyala.");
+    }
+  };
+
+  // Approval handlers
+  const handleApprove = async (t: Transaction) => {
+    try {
+      const res = await apiFetch(`/transaksi/${t.id}/approve`, { method: "PATCH" });
+      if (res.ok) {
+        alert("Transaksi disetujui!");
+        fetchTransaksi();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || "Gagal menyetujui transaksi!");
+      }
+    } catch {
+      alert("Koneksi ke server gagal. Pastikan backend menyala.");
+    }
+  };
+
+  const openRejectModal = (t: Transaction) => {
+    setRejectTarget(t);
+    setRejectReason("");
+    setRejectError("");
+  };
+
+  const closeRejectModal = () => {
+    setRejectTarget(null);
+    setRejectReason("");
+    setRejectError("");
+  };
+
+  const handleReject = async () => {
+    if (!rejectTarget) return;
+    if (rejectReason.trim().length < 3) {
+      setRejectError("Alasan minimal 3 karakter.");
+      return;
+    }
+    setRejecting(true);
+    try {
+      const res = await apiFetch(`/transaksi/${rejectTarget.id}/reject`, {
+        method: "PATCH",
+        body: JSON.stringify({ approval_note: rejectReason.trim() }),
+      });
+      if (res.ok) {
+        alert("Transaksi ditolak!");
+        closeRejectModal();
+        fetchTransaksi();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setRejectError(data.message || "Gagal menolak transaksi!");
+      }
+    } catch {
+      setRejectError("Koneksi ke server gagal. Pastikan backend menyala.");
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -638,12 +723,15 @@ export function PembukuanPage() {
 
         {/* Tab Content */}
         <div className="p-6">
-          {activeTab === "pemasukan" && <PemasukanContent transactions={filteredTransactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} canEdit={canManageTransaksi} canDelete={canManageTransaksi} onEdit={handleEdit} onDelete={handleDelete} />}
-          {activeTab === "pengeluaran" && <PengeluaranContent transactions={filteredTransactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} canEdit={canManageTransaksi} canDelete={canManageTransaksi} onEdit={handleEdit} onDelete={handleDelete} />}
+          {activeTab === "pemasukan" && <PemasukanContent transactions={filteredTransactions.filter(t => t.tipe === "pemasukan")} isLoading={isLoading} canEdit={canManageTransaksi} canDelete={canManageTransaksi} canApprove={canApprove} onEdit={handleEdit} onDelete={handleDelete} onApprove={handleApprove} onReject={openRejectModal} />}
+          {activeTab === "pengeluaran" && <PengeluaranContent transactions={filteredTransactions.filter(t => t.tipe === "pengeluaran")} isLoading={isLoading} canEdit={canManageTransaksi} canDelete={canManageTransaksi} canApprove={canApprove} onEdit={handleEdit} onDelete={handleDelete} onApprove={handleApprove} onReject={openRejectModal} />}
           {activeTab === "kas" && (
             <KasContent
               transactions={filteredTransactions}
               isLoading={isLoading}
+              canApprove={canApprove}
+              onApprove={handleApprove}
+              onReject={openRejectModal}
             />
           )}
           {activeTab === "aset" && (
@@ -697,6 +785,42 @@ export function PembukuanPage() {
         }}
       />
 
+      {/* Reject Modal */}
+      {rejectTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Tolak Transaksi</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Berikan alasan penolakan untuk "{rejectTarget.keterangan}".
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => { setRejectReason(e.target.value); if (rejectError) setRejectError(""); }}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+              placeholder="Minimal 3 karakter..."
+            />
+            {rejectError && <p className="text-xs text-red-600 mt-1">{rejectError}</p>}
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={closeRejectModal}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                disabled={rejecting}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleReject}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50"
+                disabled={rejecting}
+              >
+                {rejecting ? "Memproses..." : "Tolak"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inventaris Modal */}
       <InventarisModal
         isOpen={isInventarisModalOpen}
@@ -718,11 +842,14 @@ type Props = {
   isLoading: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  canApprove: boolean;
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
+  onApprove: (t: Transaction) => void;
+  onReject: (t: Transaction) => void;
 };
 
-function PemasukanContent({ transactions, isLoading, canEdit, canDelete, onEdit, onDelete }: Props) {
+function PemasukanContent({ transactions, isLoading, canEdit, canDelete, canApprove, onEdit, onDelete, onApprove, onReject }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -764,26 +891,40 @@ function PemasukanContent({ transactions, isLoading, canEdit, canDelete, onEdit,
               </td>
               <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
               <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
-              <td className="py-4 text-center">
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${t.status === "valid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
-                  {t.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                  {t.status === "valid" ? "Valid" : "Pending"}
-                </span>
-              </td>
+              <td className="py-4 text-center">{renderStatusBadge(t.status)}</td>
               <td className="py-4 text-sm text-gray-900 text-right font-mono">
                 Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
               </td>
               <td className="py-4 text-center">
-                {canEdit && (
-                  <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                )}
-                {canDelete && (
-                  <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+                {canEdit && (() => {
+                  const isPending = (t.status || "").toLowerCase() === "pending";
+                  return isPending && (
+                    <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  );
+                })()}
+                {canDelete && (() => {
+                  const isPending = (t.status || "").toLowerCase() === "pending";
+                  return isPending && (
+                    <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  );
+                })()}
+                {canApprove && (() => {
+                  const isPending = (t.status || "").toLowerCase() === "pending";
+                  return isPending && (
+                    <>
+                      <button onClick={() => onApprove(t)} className="p-1 text-green-600 hover:text-green-800 mx-1" title="Setujui">
+                        <CheckCircle className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => onReject(t)} className="p-1 text-red-500 hover:text-red-700 mx-1" title="Tolak">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </>
+                  );
+                })()}
               </td>
             </tr>
           ))}
@@ -793,7 +934,7 @@ function PemasukanContent({ transactions, isLoading, canEdit, canDelete, onEdit,
   );
 }
 
-function PengeluaranContent({ transactions, isLoading, canEdit, canDelete, onEdit, onDelete }: Props) {
+function PengeluaranContent({ transactions, isLoading, canEdit, canDelete, canApprove, onEdit, onDelete, onApprove, onReject }: Props) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -835,26 +976,40 @@ function PengeluaranContent({ transactions, isLoading, canEdit, canDelete, onEdi
               </td>
               <td className="py-4 text-sm text-gray-900">{t.keterangan}</td>
               <td className="py-4 text-sm text-gray-600">{t.kategori}</td>
-              <td className="py-4 text-center">
-                <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${t.status === "valid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
-                  {t.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                  {t.status === "valid" ? "Valid" : "Pending"}
-                </span>
-              </td>
+              <td className="py-4 text-center">{renderStatusBadge(t.status)}</td>
               <td className="py-4 text-sm text-gray-900 text-right font-mono">
                 Rp {new Intl.NumberFormat("id-ID").format(Number(t.jumlah))}
               </td>
               <td className="py-4 text-center">
-                {canEdit && (
-                  <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                )}
-                {canDelete && (
-                  <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
+                {canEdit && (() => {
+                  const isPending = (t.status || "").toLowerCase() === "pending";
+                  return isPending && (
+                    <button onClick={() => onEdit(t)} className="p-1 text-gray-500 hover:text-gray-900 mr-2" title="Edit">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                  );
+                })()}
+                {canDelete && (() => {
+                  const isPending = (t.status || "").toLowerCase() === "pending";
+                  return isPending && (
+                    <button onClick={() => onDelete(t)} className="p-1 text-red-500 hover:text-red-700" title="Hapus">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  );
+                })()}
+                {canApprove && (() => {
+                  const isPending = (t.status || "").toLowerCase() === "pending";
+                  return isPending && (
+                    <>
+                      <button onClick={() => onApprove(t)} className="p-1 text-green-600 hover:text-green-800 mx-1" title="Setujui">
+                        <CheckCircle className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => onReject(t)} className="p-1 text-red-500 hover:text-red-700 mx-1" title="Tolak">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </>
+                  );
+                })()}
               </td>
             </tr>
           ))}
@@ -868,9 +1023,12 @@ function PengeluaranContent({ transactions, isLoading, canEdit, canDelete, onEdi
 type KasProps = {
   transactions: Transaction[];
   isLoading: boolean;
+  canApprove: boolean;
+  onApprove: (t: Transaction) => void;
+  onReject: (t: Transaction) => void;
 };
 
-function KasContent({ transactions, isLoading }: KasProps) {
+function KasContent({ transactions, isLoading, canApprove, onApprove, onReject }: KasProps) {
   // Hitung dari real transactions
   const totalPemasukan = transactions
     .filter((t) => t.tipe === "pemasukan")
@@ -939,6 +1097,7 @@ function KasContent({ transactions, isLoading }: KasProps) {
                 <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Tipe</th>
                 <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="pb-3 text-right text-xs font-medium text-gray-500 uppercase">Nominal</th>
+                <th className="pb-3 text-center text-xs font-medium text-gray-500 uppercase">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -959,17 +1118,29 @@ function KasContent({ transactions, isLoading }: KasProps) {
                       {t.tipe === "pemasukan" ? "Pemasukan" : "Pengeluaran"}
                     </span>
                   </td>
-                  <td className="py-4 text-center">
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${t.status === "valid" ? "bg-green-50 text-green-700" : "bg-yellow-50 text-yellow-700"}`}>
-                      {t.status === "valid" ? <CheckCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                      {t.status === "valid" ? "Valid" : "Pending"}
-                    </span>
-                  </td>
+                  <td className="py-4 text-center">{renderStatusBadge(t.status)}</td>
                   <td className={`py-4 text-sm text-right font-mono ${
                     t.tipe === "pemasukan" ? "text-green-700" : "text-red-600"
                   }`}>
                     {t.tipe === "pemasukan" ? "+" : "-"} Rp {formatCurrency(Number(t.jumlah))}
                   </td>
+                  {canApprove && (() => {
+                    const isPending = (t.status || "").toLowerCase() === "pending";
+                    return (
+                      <td className="py-4 text-center">
+                        {isPending && (
+                          <span>
+                            <button onClick={() => onApprove(t)} className="p-1 text-green-600 hover:text-green-800 mx-1" title="Setujui">
+                              <CheckCircle className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => onReject(t)} className="p-1 text-red-500 hover:text-red-700 mx-1" title="Tolak">
+                              <X className="w-4 h-4" />
+                            </button>
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })()}
                 </tr>
               ))}
             </tbody>
