@@ -1002,7 +1002,7 @@ function AsetContent({ asetList, isLoading, canEdit, canDelete, onEdit, onDelete
   if (asetList.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        Belum ada data aset tetap. Klik "Tambah Transaksi" untuk menambah aset.
+        Belum ada data aset tetap. Klik "Tambah Aset" untuk menambah aset.
       </div>
     );
   }
@@ -1108,7 +1108,7 @@ function InventarisContent({ inventarisList, isLoading, canEdit, canDelete, onEd
   if (inventarisList.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
-        Belum ada data inventaris. Klik "Tambah Transaksi" untuk menambah inventaris.
+        Belum ada data inventaris. Klik "Tambah Inventaris" untuk menambah inventaris.
       </div>
     );
   }

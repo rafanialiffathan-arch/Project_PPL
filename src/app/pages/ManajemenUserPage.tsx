@@ -59,7 +59,7 @@ const ALL_PERMISSIONS: { key: Permission; label: string; desc: string }[] = [
   {
     key: "approve_transaction",
     label: "Approve Transaksi",
-    desc: "Menyetujui/menolak transaksi (khusus Pimpinan)",
+    desc: "Menyetujui/menolak transaksi",
   },
   {
     key: "manage_users",
