@@ -45,8 +45,9 @@ const uploadRouter = Router();
 uploadRouter.use(authMiddleware as any);
 
 // POST /api/transaksi/upload — upload transaksi baru dengan bukti
+// Sprint 3A: status SELALU 'pending' saat create, diabaikan dari body.
 uploadRouter.post('/', requirePermission('manage_transaksi') as any, uploadMiddleware, async (req: AuthRequest, res) => {
-  const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
+  const { keterangan, jumlah, tipe, kategori, tanggal, nomor_invoice } = req.body;
   const file = req.file;
 
   if (!keterangan || !jumlah || !tipe || !tanggal) {
@@ -56,13 +57,13 @@ uploadRouter.post('/', requirePermission('manage_transaksi') as any, uploadMiddl
 
   try {
     const buktiPath = file ? `/uploads/${file.filename}` : null;
-    
+
     const [result] = await pool.query(
       `INSERT INTO transaksi
          (user_id, keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice, bukti_transaksi)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.user!.id, keterangan, jumlah, tipe,
-       kategori || 'umum', status || 'pending', tanggal, 
+       kategori || 'umum', 'pending', tanggal,
        nomor_invoice || null, buktiPath]
     ) as any;
 
@@ -84,8 +85,9 @@ uploadRouter.post('/', requirePermission('manage_transaksi') as any, uploadMiddl
 });
 
 // PUT /api/transaksi/upload/:id — update transaksi dengan bukti baru
+// Sprint 3A: status TIDAK lagi di-set dari request body.
 uploadRouter.put('/:id', requirePermission('manage_transaksi') as any, uploadMiddleware, async (req: AuthRequest, res) => {
-  const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
+  const { keterangan, jumlah, tipe, kategori, tanggal, nomor_invoice } = req.body;
   const file = req.file;
 
   if (!keterangan || !jumlah || !tipe || !tanggal) {
@@ -97,15 +99,15 @@ uploadRouter.put('/:id', requirePermission('manage_transaksi') as any, uploadMid
     const buktiPath = file ? `/uploads/${file.filename}` : null;
     
     // Update dengan bukti jika ada
-    let query = `UPDATE transaksi 
-       SET keterangan = ?, jumlah = ?, tipe = ?, kategori = ?, status = ?, tanggal = ?, nomor_invoice = ?`;
-    let params = [keterangan, jumlah, tipe, kategori || 'umum', status || 'pending', tanggal, nomor_invoice || null];
+    let query = `UPDATE transaksi
+       SET keterangan = ?, jumlah = ?, tipe = ?, kategori = ?, tanggal = ?, nomor_invoice = ?`;
+    let params = [keterangan, jumlah, tipe, kategori || 'umum', tanggal, nomor_invoice || null];
     
     if (buktiPath) {
       query += ', bukti_transaksi = ?';
       params.push(buktiPath);
     }
-    
+
     const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
     query += ' WHERE id = ?' + (isAdmin ? '' : ' AND user_id = ?');
     params.push(req.params.id, ...(isAdmin ? [] : [req.user!.id]));
@@ -119,13 +121,12 @@ uploadRouter.put('/:id', requirePermission('manage_transaksi') as any, uploadMid
 
     res.json({
       status: 'success',
-      data: { 
-        id: req.params.id, 
-        keterangan, 
-        jumlah, 
-        tipe, 
-        kategori, 
-        status, 
+      data: {
+        id: req.params.id,
+        keterangan,
+        jumlah,
+        tipe,
+        kategori,
         tanggal,
         nomor_invoice: nomor_invoice || null,
         bukti_transaksi: buktiPath
@@ -160,8 +161,9 @@ router.get('/', async (req: AuthRequest, res) => {
 });
 
 // POST /api/transaksi — tambah transaksi baru (JSON)
+// Sprint 3A: status SELALU 'pending' saat create, diabaikan dari body.
 router.post('/', requirePermission('manage_transaksi') as any, async (req: AuthRequest, res) => {
-  const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
+  const { keterangan, jumlah, tipe, kategori, tanggal, nomor_invoice } = req.body;
 
   if (!keterangan || !jumlah || !tipe || !tanggal) {
     res.status(400).json({ message: 'Field wajib: keterangan, jumlah, tipe, tanggal' });
@@ -174,7 +176,7 @@ router.post('/', requirePermission('manage_transaksi') as any, async (req: AuthR
          (user_id, keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [req.user!.id, keterangan, jumlah, tipe,
-       kategori || 'umum', status || 'pending', tanggal, nomor_invoice || null]
+       kategori || 'umum', 'pending', tanggal, nomor_invoice || null]
     ) as any;
 
     res.status(201).json({
@@ -195,7 +197,9 @@ router.post('/', requirePermission('manage_transaksi') as any, async (req: AuthR
 
 // PUT /api/transaksi/:id — update transaksi (JSON)
 router.put('/:id', requirePermission('manage_transaksi') as any, async (req: AuthRequest, res) => {
-  const { keterangan, jumlah, tipe, kategori, status, tanggal, nomor_invoice } = req.body;
+  const { keterangan, jumlah, tipe, kategori, tanggal, nomor_invoice } = req.body;
+  // Sprint 3A: status TIDAK lagi di-set dari request body.
+  // Perubahan status hanya boleh lewat endpoint /approve dan /reject.
 
   if (!keterangan || !jumlah || !tipe || !tanggal) {
     res.status(400).json({ message: 'Field wajib: keterangan, jumlah, tipe, tanggal' });
@@ -205,9 +209,9 @@ router.put('/:id', requirePermission('manage_transaksi') as any, async (req: Aut
   try {
     const isAdmin = req.user?.role === 'admin_sistem' || req.user?.role === 'admin';
     const query = `UPDATE transaksi
-       SET keterangan = ?, jumlah = ?, tipe = ?, kategori = ?, status = ?, tanggal = ?, nomor_invoice = ?
+       SET keterangan = ?, jumlah = ?, tipe = ?, kategori = ?, tanggal = ?, nomor_invoice = ?
        WHERE id = ?${isAdmin ? '' : ' AND user_id = ?'}`;
-    const params = [keterangan, jumlah, tipe, kategori || 'umum', status || 'pending', tanggal,
+    const params = [keterangan, jumlah, tipe, kategori || 'umum', tanggal,
        nomor_invoice || null, req.params.id, ...(isAdmin ? [] : [req.user!.id])];
     const [result] = await pool.query(query, params) as any;
 
@@ -218,13 +222,12 @@ router.put('/:id', requirePermission('manage_transaksi') as any, async (req: Aut
 
     res.json({
       status: 'success',
-      data: { 
-        id: req.params.id, 
-        keterangan, 
-        jumlah, 
-        tipe, 
-        kategori, 
-        status, 
+      data: {
+        id: req.params.id,
+        keterangan,
+        jumlah,
+        tipe,
+        kategori,
         tanggal,
         nomor_invoice: nomor_invoice || null
       }
@@ -247,6 +250,122 @@ router.delete('/:id', requirePermission('manage_transaksi') as any, async (req: 
     res.json({ message: 'Transaksi berhasil dihapus' });
   } catch (err) {
     res.status(500).json({ message: 'Gagal menghapus transaksi', error: err });
+  }
+});
+
+// ==========================
+// APPROVAL WORKFLOW (Sprint 3A)
+// ==========================
+// Hanya user dengan permission `approve_transaction` (pimpinan
+// dan admin_sistem) yang boleh approve/reject. Transaksi yang
+// status-nya bukan 'pending' tidak dapat di-approve/reject ulang.
+// Setiap aksi menyimpan siapa user yang melakukannya dan kapan.
+// ==========================
+
+// PATCH /api/transaksi/:id/approve
+// Body opsional: { approval_note?: string }
+router.patch('/:id/approve', requirePermission('approve_transaction') as any, async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  const note = typeof req.body?.approval_note === 'string' ? req.body.approval_note.trim() : null;
+
+  try {
+    const [rows]: any = await pool.query(
+      'SELECT id, status FROM transaksi WHERE id = ?',
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
+    }
+
+    if (rows[0].status !== 'pending') {
+      return res.status(400).json({
+        message: `Transaksi tidak dapat di-approve (status saat ini: ${rows[0].status})`
+      });
+    }
+
+    // approval_note opsional: hanya ditulis jika dikirim.
+    if (note) {
+      await pool.query(
+        `UPDATE transaksi
+           SET status = 'approved',
+               approved_by = ?,
+               approved_at = NOW(),
+               approval_note = ?
+         WHERE id = ?`,
+        [req.user!.id, note, id]
+      );
+    } else {
+      await pool.query(
+        `UPDATE transaksi
+           SET status = 'approved',
+               approved_by = ?,
+               approved_at = NOW()
+         WHERE id = ?`,
+        [req.user!.id, id]
+      );
+    }
+
+    const [updated]: any = await pool.query(
+      'SELECT * FROM transaksi WHERE id = ?',
+      [id]
+    );
+
+    return res.json({ status: 'success', data: updated[0] });
+  } catch (err) {
+    console.error('Approve transaksi error:', err);
+    return res.status(500).json({ message: 'Gagal approve transaksi', error: err });
+  }
+});
+
+// PATCH /api/transaksi/:id/reject
+// Body WAJIB: { approval_note: string } (>= 3 karakter setelah trim)
+router.patch('/:id/reject', requirePermission('approve_transaction') as any, async (req: AuthRequest, res) => {
+  const { id } = req.params;
+  const rawNote = req.body?.approval_note;
+  const note = typeof rawNote === 'string' ? rawNote.trim() : '';
+
+  if (note.length < 3) {
+    return res.status(400).json({
+      message: 'approval_note wajib diisi (minimal 3 karakter)'
+    });
+  }
+
+  try {
+    const [rows]: any = await pool.query(
+      'SELECT id, status FROM transaksi WHERE id = ?',
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
+    }
+
+    if (rows[0].status !== 'pending') {
+      return res.status(400).json({
+        message: `Transaksi tidak dapat di-reject (status saat ini: ${rows[0].status})`
+      });
+    }
+
+    await pool.query(
+      `UPDATE transaksi
+         SET status = 'rejected',
+             rejected_by = ?,
+             rejected_at = NOW(),
+             approval_note = ?
+       WHERE id = ?`,
+      [req.user!.id, note, id]
+    );
+
+    const [updated]: any = await pool.query(
+      'SELECT * FROM transaksi WHERE id = ?',
+      [id]
+    );
+
+    return res.json({ status: 'success', data: updated[0] });
+  } catch (err) {
+    console.error('Reject transaksi error:', err);
+    return res.status(500).json({ message: 'Gagal reject transaksi', error: err });
   }
 });
 
