@@ -147,16 +147,70 @@ export { uploadRouter };
 // Semua route di bawah ini wajib login (ada token)
 router.use(authMiddleware as any);
 
-// GET /api/transaksi — ambil semua transaksi milik user yg login
-router.get('/', async (req: AuthRequest, res) => {
+// GET /api/transaksi — company-wide read dengan filter status & tanggal (Sprint 3C.1)
+// Permission wajib: view_pembukuan (dimiliki admin_sistem, pimpinan, pengelola_internal).
+// Query param opsional:
+//   status  : pending | approved | rejected | valid | all  (default: all)
+//             "approved" secara resmi = approved + valid (legacy), sesuai Decision 6 / ADR-005.
+//   start_date : YYYY-MM-DD
+//   end_date   : YYYY-MM-DD
+// Response: array transaksi (tidak dibungkus) — backward-compatible dengan consumer existing.
+router.get('/', requirePermission('view_pembukuan') as any, async (req: AuthRequest, res) => {
+  const VALID_STATUSES = ['pending', 'approved', 'rejected', 'valid', 'all'] as const;
+  type StatusParam = typeof VALID_STATUSES[number];
+
+  const rawStatus = (req.query.status    as string | undefined)?.trim().toLowerCase();
+  const rawStart  = (req.query.start_date as string | undefined)?.trim();
+  const rawEnd    = (req.query.end_date   as string | undefined)?.trim();
+
+  if (rawStatus && !VALID_STATUSES.includes(rawStatus as StatusParam)) {
+    res.status(400).json({
+      message: `Parameter status tidak valid: "${rawStatus}". Nilai yang diizinkan: ${VALID_STATUSES.join(', ')}.`
+    });
+    return;
+  }
+
+  const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  if (rawStart && (!DATE_RE.test(rawStart) || isNaN(Date.parse(rawStart)))) {
+    res.status(400).json({ message: `Format start_date tidak valid: "${rawStart}". Gunakan format YYYY-MM-DD.` });
+    return;
+  }
+  if (rawEnd && (!DATE_RE.test(rawEnd) || isNaN(Date.parse(rawEnd)))) {
+    res.status(400).json({ message: `Format end_date tidak valid: "${rawEnd}". Gunakan format YYYY-MM-DD.` });
+    return;
+  }
+  if (rawStart && rawEnd && rawStart > rawEnd) {
+    res.status(400).json({ message: 'start_date tidak boleh lebih besar dari end_date.' });
+    return;
+  }
+
   try {
+    const conditions: string[] = [];
+    const params:     unknown[] = [];
+
+    if (rawStatus && rawStatus !== 'all') {
+      if (rawStatus === 'approved') {
+        conditions.push(`status IN ('approved', 'valid')`);
+      } else {
+        conditions.push(`status = ?`);
+        params.push(rawStatus);
+      }
+    }
+
+    if (rawStart) { conditions.push(`tanggal >= ?`); params.push(rawStart); }
+    if (rawEnd)   { conditions.push(`tanggal <= ?`); params.push(rawEnd);   }
+
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
     const [rows] = await pool.query(
-      `SELECT * FROM transaksi
-       ORDER BY tanggal DESC, created_at DESC`
+      `SELECT * FROM transaksi ${whereClause} ORDER BY tanggal DESC, created_at DESC`,
+      params
     );
+
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ message: 'Gagal mengambil transaksi', error: err });
+    console.error('GET transaksi error:', err);
+    res.status(500).json({ message: 'Gagal mengambil transaksi' });
   }
 });
 
