@@ -1,7 +1,7 @@
 import { TrendingUp, TrendingDown, FileText, Download, Loader2 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { TransactionModal } from "../components/TransactionModal.tsx"; 
+import { TransactionModal } from "../components/TransactionModal.tsx";
 import {
   BarChart,
   Bar,
@@ -31,6 +31,44 @@ type Transaction = {
   kategori: string;
   status: string;
   nomor_invoice: string | null;
+};
+
+type TransactionSummary = {
+  official: {
+    income: number;
+    expense: number;
+    net: number;
+    count: number;
+  };
+  monthly: Array<{
+    month: string;
+    income: number;
+    expense: number;
+    net: number;
+    count: number;
+  }>;
+  by_category: Array<{
+    kategori: string;
+    income: number;
+    expense: number;
+    net: number;
+    count: number;
+  }>;
+  pending: { count: number };
+  rejected: { count: number };
+};
+
+const emptySummary: TransactionSummary = {
+  official: { income: 0, expense: 0, net: 0, count: 0 },
+  monthly: [],
+  by_category: [],
+  pending: { count: 0 },
+  rejected: { count: 0 },
+};
+
+const isOfficialStatus = (status: string) => {
+  const normalized = (status || "").toLowerCase();
+  return normalized === "approved" || normalized === "valid";
 };
 
 const escapeCsvValue = (value: string | number | null | undefined) => {
@@ -63,106 +101,91 @@ export function DashboardPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"pemasukan" | "pengeluaran">("pemasukan");
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [summary, setSummary] = useState<TransactionSummary>(emptySummary);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch transactions
-  useEffect(() => {
-    const fetchTransaksi = async () => {
-      setIsLoading(true);
-      try {
-        const res = await apiFetch("/transaksi");
-        if (res.ok) {
-          const data = await res.json();
-          setTransactions(data);
-        }
-      } catch (err) {
-        console.error("Gagal fetch transaksi:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchTransaksi();
-  }, []);
-
-  // Refresh transactions after modal close
-  const handleRefreshTransactions = async () => {
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
     try {
-      const res = await apiFetch("/transaksi");
-      if (res.ok) {
-        const data = await res.json();
+      const [summaryRes, transactionsRes] = await Promise.all([
+        apiFetch("/transaksi/summary"),
+        apiFetch("/transaksi"),
+      ]);
+
+      if (summaryRes.ok) {
+        const summaryData = await summaryRes.json();
+        setSummary(summaryData);
+      } else {
+        setSummary(emptySummary);
+      }
+
+      if (transactionsRes.ok) {
+        const data = await transactionsRes.json();
         setTransactions(data);
       }
     } catch (err) {
-      console.error("Gagal refresh transaksi:", err);
+      console.error("Gagal fetch dashboard:", err);
+      setSummary(emptySummary);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Compute summary from transactions
+  // Fetch status-aware financial summary and recent transactions
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  // Refresh transactions and summary after modal close
+  const handleRefreshTransactions = async () => {
+    await fetchDashboardData();
+  };
+
+  // Compute official dashboard data from backend summary.
+  // Official financial numbers follow ADR-005: approved + valid legacy only.
   const computedData = useMemo(() => {
-    const totalPemasukan = transactions
-      .filter((t) => t.tipe === "pemasukan")
-      .reduce((sum, t) => sum + Number(t.jumlah), 0);
+    const officialTransactions = transactions.filter((t) => isOfficialStatus(t.status));
+    const totalPemasukan = Number(summary.official.income) || 0;
+    const totalPengeluaran = Number(summary.official.expense) || 0;
+    const netCashFlow = Number(summary.official.net) || 0;
+    const jumlahTransaksi = Number(summary.official.count) || 0;
+    const pendingCount = Number(summary.pending.count) || 0;
+    const rejectedCount = Number(summary.rejected.count) || 0;
+    const incomeCount = officialTransactions.filter((t) => t.tipe === "pemasukan").length;
+    const expenseCount = officialTransactions.filter((t) => t.tipe === "pengeluaran").length;
 
-    const totalPengeluaran = transactions
-      .filter((t) => t.tipe === "pengeluaran")
-      .reduce((sum, t) => sum + Number(t.jumlah), 0);
-
-    const netCashFlow = totalPemasukan - totalPengeluaran;
-    const jumlahTransaksi = transactions.length;
-
-    // Group by month for chart
-    const monthlyMap = new Map<string, { month: string; date: Date; pemasukan: number; pengeluaran: number }>();
-    
-    transactions.forEach((t) => {
-      const date = new Date(t.tanggal);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const monthlyData = summary.monthly.map((m) => {
+      const [year, month] = m.month.split("-");
+      const date = new Date(Number(year), Number(month) - 1, 1);
       const monthLabel = date.toLocaleDateString("id-ID", { month: "short", year: "numeric" });
-      
-      if (!monthlyMap.has(monthKey)) {
-        monthlyMap.set(monthKey, { month: monthLabel, date, pemasukan: 0, pengeluaran: 0 });
-      }
-      
-      const entry = monthlyMap.get(monthKey)!;
-      if (t.tipe === "pemasukan") {
-        entry.pemasukan += Number(t.jumlah);
-      } else {
-        entry.pengeluaran += Number(t.jumlah);
-      }
+
+      return {
+        month: monthLabel,
+        monthRaw: monthLabel.split(" ")[0],
+        pemasukan: Math.round((Number(m.income) || 0) / 1000000 * 10) / 10,
+        pengeluaran: Math.round((Number(m.expense) || 0) / 1000000 * 10) / 10,
+      };
     });
 
-    const monthlyData = Array.from(monthlyMap.entries())
-      .sort(([, a], [, b]) => a.date.getTime() - b.date.getTime())
-      .map(([, v]) => ({
-        month: v.month,
-        monthRaw: v.month.split(" ")[0], // e.g. "Jan"
-        pemasukan: Math.round(v.pemasukan / 1000000 * 10) / 10, // Convert to jutaan with 1 decimal
-        pengeluaran: Math.round(v.pengeluaran / 1000000 * 10) / 10,
-      }));
-
-    // Group by category for expense breakdown
-    const categoryMap = new Map<string, number>();
-    transactions
-      .filter((t) => t.tipe === "pengeluaran")
-      .forEach((t) => {
-        const kat = t.kategori || "Lainnya";
-        categoryMap.set(kat, (categoryMap.get(kat) || 0) + Number(t.jumlah));
-      });
-
-    const totalExpense = Array.from(categoryMap.values()).reduce((a, b) => a + b, 0);
-    const categoryData = Array.from(categoryMap.entries())
-      .map(([name, value]) => ({
-        name,
-        value: totalExpense > 0 ? Math.round((value / totalExpense) * 100 * 10) / 10 : 0,
-        amount: value,
-      }))
+    const totalExpense = summary.by_category.reduce((sum, item) => sum + (Number(item.expense) || 0), 0);
+    const categoryData = summary.by_category
+      .filter((item) => (Number(item.expense) || 0) > 0)
+      .map((item) => {
+        const amount = Number(item.expense) || 0;
+        return {
+          name: item.kategori || "Lainnya",
+          value: totalExpense > 0 ? Math.round((amount / totalExpense) * 100 * 10) / 10 : 0,
+          amount,
+        };
+      })
       .sort((a, b) => b.value - a.value);
 
-    // Recent transactions (sorted by tanggal desc)
+    // Recent transactions remain monitoring data and show status badges.
+    // They are not used for official financial totals.
     const recentTransactions = [...transactions]
       .sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime())
       .slice(0, 10);
 
-    // Find insights
     let insightData: {
       warning: { has: boolean; message: string };
       recommendation: { has: boolean; message: string };
@@ -175,47 +198,41 @@ export function DashboardPage() {
       success: { has: false, message: "" },
     };
 
-    if (transactions.length > 0) {
-      // Get current month and previous month data
+    if (jumlahTransaksi > 0) {
       const currentMonth = new Date().toISOString().slice(0, 7);
       const lastMonth = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).toISOString().slice(0, 7);
-      
-      const currentMonthTx = transactions.filter(t => t.tanggal.startsWith(currentMonth));
-      const lastMonthTx = transactions.filter(t => t.tanggal.startsWith(lastMonth));
 
-      const currentExpense = currentMonthTx.filter(t => t.tipe === "pengeluaran").reduce((s, t) => s + Number(t.jumlah), 0);
-      const lastExpense = lastMonthTx.filter(t => t.tipe === "pengeluaran").reduce((s, t) => s + Number(t.jumlah), 0);
+      const currentMonthSummary = summary.monthly.find((m) => m.month === currentMonth);
+      const lastMonthSummary = summary.monthly.find((m) => m.month === lastMonth);
+      const currentExpense = Number(currentMonthSummary?.expense || 0);
+      const lastExpense = Number(lastMonthSummary?.expense || 0);
 
-      // Alert if cash flow negative
       if (netCashFlow < 0) {
         insightData.alert = {
           has: true,
-          message: `Cash flow saat ini negatif Rp ${new Intl.NumberFormat("id-ID").format(Math.abs(netCashFlow))}. Perlu strategi untuk meningkatkan pemasukan.`
+          message: `Cash flow resmi negatif Rp ${new Intl.NumberFormat("id-ID").format(Math.abs(netCashFlow))}. Pending dan rejected tidak termasuk angka ini.`
         };
       }
 
-      // Warning if expense increased
       if (lastExpense > 0 && currentExpense > lastExpense * 1.1) {
         const percentIncrease = Math.round(((currentExpense - lastExpense) / lastExpense) * 100);
         insightData.warning = {
           has: true,
-          message: `Pengeluaran bulan ini naik ${percentIncrease}% dibanding kemarin. Kategori terbesar: ${categoryData[0]?.name || "N/A"} (${categoryData[0]?.value || 0}%)`
+          message: `Pengeluaran resmi bulan ini naik ${percentIncrease}% dibanding bulan lalu. Kategori terbesar: ${categoryData[0]?.name || "N/A"} (${categoryData[0]?.value || 0}%)`
         };
       }
 
-      // Success if profit target met
       if (totalPemasukan > 0 && netCashFlow > 0) {
         insightData.success = {
           has: true,
-          message: `Keuntungan bersih Rp ${new Intl.NumberFormat("id-ID").format(netCashFlow)}. Pertahankan pertumbuhan ini!`
+          message: `Laba/cash flow resmi Rp ${new Intl.NumberFormat("id-ID").format(netCashFlow)} berdasarkan transaksi approved + valid.`
         };
       }
 
-      // Recommendation if expense > income (guard: avoid division by zero)
       if (totalPemasukan > 0 && totalPengeluaran > totalPemasukan * 0.9) {
         insightData.recommendation = {
           has: true,
-          message: `Pengeluaran sudah ${Math.round((totalPengeluaran / totalPemasukan) * 100)}% dari pemasukan. Pertimbangkan efisiensi di kategori ${categoryData[0]?.name || "beban utama"}.`
+          message: `Pengeluaran resmi sudah ${Math.round((totalPengeluaran / totalPemasukan) * 100)}% dari pemasukan resmi. Pertimbangkan efisiensi di kategori ${categoryData[0]?.name || "beban utama"}.`
         };
       }
     }
@@ -225,12 +242,16 @@ export function DashboardPage() {
       totalPengeluaran,
       netCashFlow,
       jumlahTransaksi,
+      pendingCount,
+      rejectedCount,
+      incomeCount,
+      expenseCount,
       monthlyData,
       categoryData,
       recentTransactions,
       insightData,
     };
-  }, [transactions]);
+  }, [summary, transactions]);
 
   const formatRupiah = (num: number) => {
     if (num >= 1000000000) {
@@ -252,25 +273,37 @@ export function DashboardPage() {
     setIsModalOpen(true);
   };
 
-  const handleExport = () => {
-    if (transactions.length === 0) {
-      alert("Belum ada transaksi untuk diexport.");
-      return;
-    }
+  const handleExport = async () => {
+    try {
+      const res = await apiFetch("/transaksi?status=approved");
+      if (!res.ok) {
+        alert("Gagal mengambil transaksi resmi untuk export.");
+        return;
+      }
 
-    downloadCsv(
-      `finsped-dashboard-transaksi-${new Date().toISOString().slice(0, 10)}.csv`,
-      ["Tanggal", "No Ref", "Keterangan", "Kategori", "Tipe", "Status", "Jumlah"],
-      transactions.map((t) => [
-        t.tanggal,
-        t.nomor_invoice || `REF-${String(t.id).padStart(4, "0")}`,
-        t.keterangan,
-        t.kategori || "",
-        t.tipe,
-        t.status,
-        Number(t.jumlah),
-      ])
-    );
+      const officialTransactions: Transaction[] = await res.json();
+      if (officialTransactions.length === 0) {
+        alert("Belum ada transaksi resmi untuk diexport.");
+        return;
+      }
+
+      downloadCsv(
+        `finsped-dashboard-official-${new Date().toISOString().slice(0, 10)}.csv`,
+        ["Tanggal", "No Ref", "Keterangan", "Kategori", "Tipe", "Status", "Jumlah"],
+        officialTransactions.map((t) => [
+          t.tanggal,
+          t.nomor_invoice || `REF-${String(t.id).padStart(4, "0")}`,
+          t.keterangan,
+          t.kategori || "",
+          t.tipe,
+          t.status,
+          Number(t.jumlah),
+        ])
+      );
+    } catch (err) {
+      console.error("Gagal export dashboard official:", err);
+      alert("Gagal export transaksi resmi.");
+    }
   };
 
   const COLORS = ["#111827", "#374151", "#6B7280", "#9CA3AF", "#D1D5DB"];
@@ -293,7 +326,7 @@ export function DashboardPage() {
         <div>
           <h1 className="text-gray-900 mb-2">Smart Financial Dashboard</h1>
           <p className="text-sm text-gray-500">
-            Real-time data • {computedData.jumlahTransaksi} transaksi
+            Angka resmi • {computedData.jumlahTransaksi} transaksi approved + valid
           </p>
         </div>
         <div className="flex gap-3">
@@ -325,6 +358,10 @@ export function DashboardPage() {
         </div>
       </div>
 
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-900">
+        <strong>Scope angka resmi:</strong> hanya transaksi <span className="font-semibold">approved + valid legacy</span>. Pending hanya monitoring approval dan rejected hanya histori audit.
+      </div>
+
       {/* 📊 SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -334,14 +371,14 @@ export function DashboardPage() {
             </div>
             <div>
               <div className="text-xs text-gray-500">Total Pemasukan</div>
-              <div className="text-sm text-gray-400">Semua periode</div>
+              <div className="text-sm text-gray-400">Approved + Valid</div>
             </div>
           </div>
           <div className="font-mono text-2xl text-green-600">
             Rp {formatRupiah(computedData.totalPemasukan)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {transactions.filter(t => t.tipe === "pemasukan").length} transaksi
+            {computedData.incomeCount} transaksi resmi
           </div>
         </div>
 
@@ -352,14 +389,14 @@ export function DashboardPage() {
             </div>
             <div>
               <div className="text-xs text-gray-500">Total Pengeluaran</div>
-              <div className="text-sm text-gray-400">Semua periode</div>
+              <div className="text-sm text-gray-400">Approved + Valid</div>
             </div>
           </div>
           <div className="font-mono text-2xl text-red-600">
             Rp {formatRupiah(computedData.totalPengeluaran)}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {transactions.filter(t => t.tipe === "pengeluaran").length} transaksi
+            {computedData.expenseCount} transaksi resmi
           </div>
         </div>
 
@@ -372,7 +409,7 @@ export function DashboardPage() {
             </div>
             <div>
               <div className="text-xs text-gray-500">{computedData.netCashFlow >= 0 ? "Laba Bersih" : "Rugi Bersih"}</div>
-              <div className="text-sm text-gray-400">Net Cash Flow</div>
+              <div className="text-sm text-gray-400">Approved + Valid</div>
             </div>
           </div>
           <div className={`font-mono text-2xl ${computedData.netCashFlow >= 0 ? "text-green-600" : "text-red-600"}`}>
@@ -386,15 +423,15 @@ export function DashboardPage() {
               <FileText className="w-5 h-5 text-blue-700" />
             </div>
             <div>
-              <div className="text-xs text-gray-500">Total Transaksi</div>
-              <div className="text-sm text-gray-400">Semua tipe</div>
+              <div className="text-xs text-gray-500">Pending Approval</div>
+              <div className="text-sm text-gray-400">Monitoring</div>
             </div>
           </div>
           <div className="font-mono text-2xl text-blue-600">
-            {computedData.jumlahTransaksi}
+            {computedData.pendingCount}
           </div>
           <div className="text-xs text-gray-500 mt-1">
-            {transactions.filter(t => t.status === "valid").length} valid, {transactions.filter(t => t.status === "pending").length} pending
+            {computedData.rejectedCount} rejected history
           </div>
         </div>
       </div>
@@ -407,10 +444,10 @@ export function DashboardPage() {
           </div>
           <div>
             <h3 className="text-gray-900 font-semibold">Smart Financial Insights</h3>
-            <p className="text-xs text-gray-600">Analisis Otomatis • Update real-time</p>
+            <p className="text-xs text-gray-600">Analisis resmi • Approved + Valid only</p>
           </div>
         </div>
-        
+
         {transactions.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <p>Belum ada data transaksi untuk dianalisis.</p>
@@ -496,9 +533,9 @@ export function DashboardPage() {
           <div className="mb-6">
             <h3 className="text-gray-900 mb-1 flex items-center gap-2">
               📈 Trend Analysis
-              <span className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded">Real Data</span>
+              <span className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded">Official</span>
             </h3>
-            <p className="text-sm text-gray-500">Pemasukan & Pengeluaran per bulan (dalam Juta)</p>
+            <p className="text-sm text-gray-500">Pemasukan & Pengeluaran resmi per bulan (dalam Juta)</p>
           </div>
           {computedData.monthlyData.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
@@ -541,7 +578,7 @@ export function DashboardPage() {
           {computedData.monthlyData.length > 1 && (
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">
               <p className="text-xs text-gray-600">
-                <strong>Insight:</strong> {computedData.netCashFlow >= 0 ? "Tren positif dengan laba bersih." : "Perlu perhatian pada pengeluaran."} Total {computedData.jumlahTransaksi} transaksi dalam periode ini.
+                <strong>Insight:</strong> {computedData.netCashFlow >= 0 ? "Tren resmi positif." : "Perlu perhatian pada pengeluaran resmi."} Total {computedData.jumlahTransaksi} transaksi official dalam periode ini.
               </p>
             </div>
           )}
@@ -553,13 +590,13 @@ export function DashboardPage() {
             <h3 className="text-gray-900 mb-1 flex items-center gap-2">
               💰 Saldo Summary
             </h3>
-            <p className="text-sm text-gray-500">Ringkasan keuangan</p>
+            <p className="text-sm text-gray-500">Approved + Valid, tanpa pending/rejected</p>
           </div>
-          
+
           <div className="space-y-4">
             {/* Current Balance Summary */}
             <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-              <div className="text-xs text-gray-600 mb-1">Total Saldo</div>
+              <div className="text-xs text-gray-600 mb-1">Total Saldo Resmi</div>
               <div className="text-xl font-mono text-gray-900 mb-2">
                 Rp {formatRupiah(computedData.netCashFlow)}
               </div>
@@ -604,16 +641,16 @@ export function DashboardPage() {
                     <div className="flex justify-between">
                       <span>Avg. Pemasukan:</span>
                       <span className="font-mono">
-                        Rp {computedData.jumlahTransaksi > 0 && transactions.filter(t => t.tipe === "pemasukan").length > 0 
-                          ? formatRupiah(computedData.totalPemasukan / transactions.filter(t => t.tipe === "pemasukan").length)
+                        Rp {computedData.incomeCount > 0
+                          ? formatRupiah(computedData.totalPemasukan / computedData.incomeCount)
                           : 0}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Avg. Pengeluaran:</span>
                       <span className="font-mono">
-                        Rp {computedData.jumlahTransaksi > 0 && transactions.filter(t => t.tipe === "pengeluaran").length > 0 
-                          ? formatRupiah(computedData.totalPengeluaran / transactions.filter(t => t.tipe === "pengeluaran").length)
+                        Rp {computedData.expenseCount > 0
+                          ? formatRupiah(computedData.totalPengeluaran / computedData.expenseCount)
                           : 0}
                       </span>
                     </div>
@@ -633,7 +670,7 @@ export function DashboardPage() {
             <h3 className="text-gray-900 mb-1">
               Tren Pemasukan & Pengeluaran
             </h3>
-            <p className="text-sm text-gray-500">Per bulan (dalam Juta Rupiah)</p>
+            <p className="text-sm text-gray-500">Official per bulan (dalam Juta Rupiah)</p>
           </div>
           {computedData.monthlyData.length > 0 ? (
             <ResponsiveContainer width="100%" height={280}>
@@ -667,7 +704,7 @@ export function DashboardPage() {
             <h3 className="text-gray-900 mb-1">
               Distribusi Pengeluaran
             </h3>
-            <p className="text-sm text-gray-500">Per kategori</p>
+            <p className="text-sm text-gray-500">Pengeluaran official per kategori</p>
           </div>
           {computedData.categoryData.length > 0 ? (
             <>
@@ -719,7 +756,7 @@ export function DashboardPage() {
           <div>
             <h3 className="text-gray-900">Transaksi Terbaru</h3>
             <p className="text-sm text-gray-500">
-              {computedData.recentTransactions.length} transaksi ditampilkan
+              {computedData.recentTransactions.length} transaksi monitoring ditampilkan
             </p>
           </div>
           <button
@@ -758,8 +795,8 @@ export function DashboardPage() {
                 {computedData.recentTransactions.map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(t.tanggal).toLocaleDateString("id-ID", { 
-                        day: "2-digit", month: "short", year: "numeric" 
+                      {new Date(t.tanggal).toLocaleDateString("id-ID", {
+                        day: "2-digit", month: "short", year: "numeric"
                       })}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-600">
@@ -773,13 +810,13 @@ export function DashboardPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs rounded ${
-                        t.status === "valid" 
-                          ? "bg-green-50 text-green-700" 
+                        isOfficialStatus(t.status)
+                          ? "bg-green-50 text-green-700"
                           : t.status === "pending"
                           ? "bg-yellow-50 text-yellow-700"
                           : "bg-gray-50 text-gray-700"
                       }`}>
-                        {t.status === "valid" ? "Valid" : t.status === "pending" ? "Pending" : t.status}
+                        {isOfficialStatus(t.status) ? "Official" : t.status === "pending" ? "Pending" : t.status}
                       </span>
                     </td>
                     <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-mono ${
