@@ -53,18 +53,19 @@ export function LaporanPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  // Fetch transactions
+  // Fetch official transactions only for financial reports.
+  // Backend maps status=approved to approved + valid legacy records.
   useEffect(() => {
     const fetchTransaksi = async () => {
       setIsLoading(true);
       try {
-        const res = await apiFetch("/transaksi");
+        const res = await apiFetch("/transaksi?status=approved");
         if (res.ok) {
           const data = await res.json();
           setTransactions(data);
         }
       } catch (err) {
-        console.error("Gagal fetch transaksi:", err);
+        console.error("Gagal fetch transaksi resmi:", err);
       } finally {
         setIsLoading(false);
       }
@@ -72,7 +73,7 @@ export function LaporanPage() {
     fetchTransaksi();
   }, []);
 
-  // Compute filtered transactions
+  // Compute filtered official transactions
   const filteredTransactions = transactions.filter((t) => {
     // Filter by tipe
     if (tipeFilter !== "all" && t.tipe !== tipeFilter) return false;
@@ -84,7 +85,7 @@ export function LaporanPage() {
     return true;
   });
 
-  // Compute summary from filtered transactions
+  // Compute official summary from filtered transactions
   const totalPemasukan = filteredTransactions
     .filter((t) => t.tipe === "pemasukan")
     .reduce((sum, t) => sum + Number(t.jumlah), 0);
@@ -103,12 +104,12 @@ export function LaporanPage() {
 
   const handleExport = () => {
     if (filteredTransactions.length === 0) {
-      alert("Tidak ada transaksi untuk diexport.");
+      alert("Tidak ada transaksi resmi untuk diexport.");
       return;
     }
 
     downloadCsv(
-      `finsped-${activeReport}-${new Date().toISOString().slice(0, 10)}.csv`,
+      `finsped-${activeReport}-official-${new Date().toISOString().slice(0, 10)}.csv`,
       ["Tanggal", "No Ref", "Keterangan", "Kategori", "Tipe", "Status", "Jumlah"],
       filteredTransactions.map((t) => [
         t.tanggal,
@@ -129,7 +130,7 @@ export function LaporanPage() {
         <div>
           <h1 className="text-gray-900 mb-2">Laporan Keuangan</h1>
           <p className="text-sm text-gray-500">
-            Generate dan export laporan keuangan perusahaan
+            Generate dan export laporan resmi berdasarkan transaksi approved + valid
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -211,7 +212,7 @@ export function LaporanPage() {
 
         {/* Summary Badge */}
         <div className="ml-auto text-sm text-gray-500">
-          {filteredTransactions.length} transaksi
+          {filteredTransactions.length} transaksi resmi
         </div>
       </div>
 
@@ -316,13 +317,13 @@ function LaporanKeuanganContent({ totalPemasukan, totalPengeluaran, labaRugi, fi
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <FileText className="w-4 h-4 text-white" />
             </div>
-            <div className="text-sm text-blue-700">Total Transaksi</div>
+            <div className="text-sm text-blue-700">Total Transaksi Resmi</div>
           </div>
           <div className="font-mono text-xl text-gray-900">
             {filteredTransactions.length}
           </div>
           <div className="text-xs text-blue-600 mt-1">
-            {filteredTransactions.filter(t => t.status === "valid").length} valid, {filteredTransactions.filter(t => t.status === "pending").length} pending
+            Approved + valid only
           </div>
         </div>
       </div>
@@ -444,7 +445,7 @@ function LaporanKeuanganContent({ totalPemasukan, totalPengeluaran, labaRugi, fi
             </table>
             {filteredTransactions.length > 50 && (
               <div className="p-4 text-center text-sm text-gray-500">
-                Menampilkan 50 dari {filteredTransactions.length} transaksi
+                Menampilkan 50 dari {filteredTransactions.length} transaksi resmi
               </div>
             )}
           </div>
@@ -467,7 +468,7 @@ function JurnalContent({ transactions }: { transactions: Transaction[] }) {
           <h3 className="text-gray-900">Jurnal Umum</h3>
         </div>
         <div className="p-12 text-center text-gray-500">
-          Tidak ada transaksi dalam periode ini
+          Tidak ada transaksi resmi dalam periode ini
         </div>
       </div>
     );
@@ -724,3 +725,4 @@ function LabaRugiContent({ totalPemasukan, totalPengeluaran, filteredTransaction
     </div>
   );
 }
+
