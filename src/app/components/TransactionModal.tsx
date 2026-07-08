@@ -2,6 +2,8 @@ import { X, Loader2, Upload, FileText, CheckCircle } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "../../lib/api";
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:5000/api").replace(/\/$/, "");
+
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -230,7 +232,7 @@ export function TransactionModal({
         : '/transaksi/upload';
       const method = editData ? 'PUT' : 'POST';
 
-      const res = await fetch(`http://localhost:5000/api${endpoint}`, {
+      const res = await fetch(`${API_BASE_URL}${endpoint}`, {
         method,
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
@@ -533,3 +535,5 @@ export function TransactionModal({
     </div>
   );
 }
+
+
