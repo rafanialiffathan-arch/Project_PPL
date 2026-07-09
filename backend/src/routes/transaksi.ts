@@ -2,6 +2,7 @@ import { Router } from 'express';
 import pool from '../config/db';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { authMiddleware, AuthRequest, requirePermission } from '../middleware/auth';
 
 const router = Router();
@@ -11,7 +12,9 @@ const router = Router();
 // ==========================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../uploads'));
+    const uploadDir = path.resolve(process.cwd(), 'uploads');
+    fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -616,4 +619,5 @@ router.patch('/:id/reject', requirePermission('approve_transaction') as any, asy
 });
 
 export default router;
+
 
